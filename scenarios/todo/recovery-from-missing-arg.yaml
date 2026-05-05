@@ -1,0 +1,28 @@
+name: todo-recovery-from-missing-arg
+description: |
+  Tests whether the todo CLI's contextual error message ("add requires task
+  text. example: todo add Buy milk") teaches the agent to recover. Strong pass
+  means the agent recovered after exactly one error.
+
+surface: cli
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI tool you have never used before. The binary "todo"
+    is on PATH at $PWD/todo. Try the most natural-sounding command FIRST. Only
+    consult --help after a command fails. We are measuring whether errors are
+    intelligible enough to recover from.
+
+goal: |
+  Add a task called "Walk the dog" to the todo list.
+
+assertions:
+  - file:
+      path: ".todo.json"
+      toContain: "Walk the dog"
+  - errorRecovered: null
+  - budget:
+      turns: 8

@@ -1,8 +1,10 @@
 import { CliSurface } from './surfaces/cli.js';
 import { OpenAIProvider } from './agent/openai.js';
+import { AnthropicProvider } from './agent/anthropic.js';
 import { computeMetrics } from './metrics.js';
 import { runAssertions } from './assertions/index.js';
 import { NullAppBridge } from './app-bridge.js';
+import { parseScenarioFile } from './scenario/parser.js';
 import type {
   AgentProvider,
   AppBridge,
@@ -66,6 +68,7 @@ export async function runScenario(opts: RunScenarioOptions): Promise<ScenarioRes
   const outcomes = await runAssertions(scenario.assertions, {
     result: partialResult,
     bridge,
+    cwd: opts.cwd ?? process.cwd(),
   });
 
   return {
@@ -74,6 +77,19 @@ export async function runScenario(opts: RunScenarioOptions): Promise<ScenarioRes
     assertions: outcomes,
     passed: outcomes.every((o) => o.passed),
   };
+}
+
+/**
+ * Convenience wrapper for users who want to drop a YAML scenario into an
+ * existing test suite (jest, vitest, etc.) without our CLI runner. Loads,
+ * parses, and runs the scenario in one call.
+ */
+export async function runScenarioFile(
+  path: string,
+  opts: Omit<RunScenarioOptions, 'scenario'> = {},
+): Promise<ScenarioResult> {
+  const scenario = parseScenarioFile(path);
+  return runScenario({ scenario, ...opts });
 }
 
 async function applySetup(scenario: Scenario, bridge: AppBridge): Promise<void> {
@@ -105,8 +121,9 @@ async function waitForSmoke(bridge: AppBridge, required: string[]): Promise<void
 
 function buildDefaultProvider(scenario: Scenario): AgentProvider {
   if (scenario.agent.provider === 'openai') return new OpenAIProvider();
+  if (scenario.agent.provider === 'anthropic') return new AnthropicProvider();
   throw new Error(
-    `Provider "${scenario.agent.provider}" is not yet implemented. Add it to runScenario opts or use openai.`,
+    `Provider "${scenario.agent.provider}" is not implemented. Pass a provider via runScenario opts or use openai/anthropic.`,
   );
 }
 

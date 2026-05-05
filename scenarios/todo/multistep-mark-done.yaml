@@ -1,0 +1,32 @@
+name: todo-multistep-mark-done
+description: |
+  Multi-step scenario: a task already exists in the list (seeded by setup);
+  the agent must (a) discover it via `list`, (b) mark it done by ID. This
+  exercises the agent's ability to chain commands using output from one to
+  inform the next.
+
+surface: cli
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI tool you have never used before. The binary "todo"
+    is on PATH at $PWD/todo. Use --help and command output to discover what
+    you need. You have NO other documentation.
+
+goal: |
+  A task called "Pre-existing item" is already in the todo list. Mark it as
+  done.
+
+assertions:
+  - file:
+      path: ".todo.json"
+      toMatchRegex: '"text"\s*:\s*"Pre-existing item"[^}]*"done"\s*:\s*true'
+  - toolCalled:
+      contains: "list"
+  - toolCalled:
+      contains: "done"
+  - budget:
+      turns: 8

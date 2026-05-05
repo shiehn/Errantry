@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import type { Matcher } from './index.js';
 
 /**
@@ -7,11 +8,12 @@ import type { Matcher } from './index.js';
  *   - { path, toContain: "substring" }
  *   - { path, toMatchRegex: "pattern" }
  */
-export const fileMatcher: Matcher = async (args) => {
-  const filePath = String(args.path ?? '');
-  if (!filePath) {
+export const fileMatcher: Matcher = async (args, ctx) => {
+  const rawPath = String(args.path ?? '');
+  if (!rawPath) {
     return { matcher: 'file', passed: false, message: 'file matcher requires `path`.' };
   }
+  const filePath = isAbsolute(rawPath) ? rawPath : resolve(ctx.cwd, rawPath);
 
   const failures: string[] = [];
   const exists = existsSync(filePath);

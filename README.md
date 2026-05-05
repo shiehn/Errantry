@@ -20,7 +20,32 @@ Phase 1 in progress — see [phasing](#phasing) below.
 | `@errantry/playwright` | scaffolding | First-class Playwright extension with `errantry` + `app` fixtures. |
 | `@errantry/jest` | not started | Secondary adapter for Jest. |
 
-## Quick start (planned)
+## Try it in 30 seconds (no LLM required)
+
+A bundled "todo" CLI lets you exercise the full pipeline without an OpenAI key:
+
+```bash
+npm install
+npx tsc -b packages/core packages/cli packages/electron-bridge packages/playwright
+bash scripts/mock-todo-test.sh
+```
+
+You should see a markdown report with green assertions, a turn count, and a
+trace of the bash commands the (mock) agent ran. To run the same scenario
+with a real LLM, drop `--mock ...` and set `OPENAI_API_KEY`.
+
+## Programmatic API
+
+```typescript
+import { runScenarioFile } from '@errantry/core';
+
+const result = await runScenarioFile('scenarios/todo/happy-path-add.yaml', {
+  cwd: workdir,
+});
+expect(result.passed).toBe(true);
+```
+
+## Quick start (Playwright extension, planned)
 
 ```typescript
 // errantry-tests/scene-create.spec.ts

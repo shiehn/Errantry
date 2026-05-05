@@ -15,6 +15,8 @@ export type Matcher = (
 export interface MatcherContext {
   result: ScenarioResult;
   bridge: AppBridge;
+  /** Working directory the agent ran in. File / audio matchers resolve relative paths against this. */
+  cwd: string;
 }
 
 const REGISTRY: Record<string, Matcher> = {

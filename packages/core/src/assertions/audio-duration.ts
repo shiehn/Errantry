@@ -1,23 +1,25 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import type { Matcher } from './index.js';
 
 /**
  * audioDuration — assert the duration of an audio file using ffprobe.
  *   { path, expectedSeconds, toleranceSeconds? }
  */
-export const audioDuration: Matcher = async (args) => {
-  const filePath = String(args.path ?? '');
+export const audioDuration: Matcher = async (args, ctx) => {
+  const rawPath = String(args.path ?? '');
   const expected = Number(args.expectedSeconds);
   const tolerance = Number(args.toleranceSeconds ?? 0.5);
 
-  if (!filePath || Number.isNaN(expected)) {
+  if (!rawPath || Number.isNaN(expected)) {
     return {
       matcher: 'audioDuration',
       passed: false,
       message: 'audioDuration requires `path` and numeric `expectedSeconds`.',
     };
   }
+  const filePath = isAbsolute(rawPath) ? rawPath : resolve(ctx.cwd, rawPath);
   if (!existsSync(filePath)) {
     return {
       matcher: 'audioDuration',

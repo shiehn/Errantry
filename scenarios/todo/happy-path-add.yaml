@@ -1,0 +1,35 @@
+name: todo-happy-path-add
+description: |
+  Baseline scenario against the bundled todo CLI. The agent has never used
+  `todo` before and must add a task called "Buy milk". Asserts the JSON state
+  file contains the expected task.
+
+  No AppBridge required — assertions are file-based.
+
+surface: cli
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI tool you have never used before. The binary "todo"
+    is on PATH at $PWD/todo. Use --help, error messages, and dry-runs to
+    discover commands. You have NO other documentation.
+
+goal: |
+  Add a new task called "Buy milk" to the todo list.
+
+assertions:
+  - file:
+      path: ".todo.json"
+      toExist: true
+  - file:
+      path: ".todo.json"
+      toContain: "Buy milk"
+  - toolCalled:
+      contains: "todo"
+  - helpInvoked: null
+  - budget:
+      turns: 6
+      errors: 2
