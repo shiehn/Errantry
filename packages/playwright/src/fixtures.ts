@@ -52,6 +52,7 @@ export const test = baseTest.extend<ErrantryFixtures>({
 
   app: async ({ errantryBridgeUrl }, use) => {
     const bridge = new HttpAppBridge(errantryBridgeUrl);
+    await waitForBridge(bridge, errantryBridgeUrl);
     const fixture: AppFixture = {
       bridge,
       db: bridge,
@@ -81,6 +82,26 @@ export const test = baseTest.extend<ErrantryFixtures>({
     await use(fixture);
   },
 });
+
+async function waitForBridge(bridge: HttpAppBridge, url: string): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  let lastErr: unknown = null;
+  while (Date.now() < deadline) {
+    try {
+      const health = await bridge.health();
+      if (health.ok) return;
+    } catch (err) {
+      lastErr = err;
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  throw new Error(
+    `Errantry bridge unreachable at ${url}. ` +
+      `Boot the host app with ERRANTRY_TEST=1 first ` +
+      `(see @errantry/electron-bridge install). ` +
+      `Last error: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
+  );
+}
 
 const DEFAULT_SYSTEM_PROMPT = [
   'You are testing a CLI tool you have never used before.',
