@@ -1,0 +1,22 @@
+name: self-test-help-invoked
+description: |
+  Self-test scenario that doesn't need an LLM — pairs with `errantry run --mock`
+  to validate the framework's loop without burning OpenAI tokens.
+
+surface: cli
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 4
+
+goal: |
+  Run any command that demonstrates you read the help text. Then echo "done".
+
+assertions:
+  - helpInvoked: null
+  - toolCalled:
+      contains: echo
+  - budget:
+      turns: 4
+      errors: 1

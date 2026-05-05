@@ -1,0 +1,36 @@
+name: scene-name-collision
+description: |
+  A scene called "Intro" already exists. Agent is asked to create another scene
+  with the same name. This tests whether the CLI surfaces the conflict
+  intelligibly and whether the agent recovers (e.g. by renaming, listing
+  existing scenes, or otherwise resolving the collision).
+
+  Pass criteria: at least one scene named "Intro" exists at the end (the
+  pre-existing one is still there) AND the agent did NOT create a duplicate
+  silently. The friction score is allowed to be non-zero — encountering and
+  recovering from the collision is the *point* of the test.
+
+surface: cli
+
+setup:
+  fixture: blank-project
+  appConfig:
+    seedScenes: ["Intro"]
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+
+goal: |
+  Create a new scene called "Intro" in the currently-bound project.
+
+assertions:
+  - dbQuery:
+      sql: "SELECT COUNT(*) AS n FROM scenes WHERE name = ?"
+      args: ["Intro"]
+      toMatch: { n: 1 }
+  - toolCalled:
+      contains: "scene"
+  - budget:
+      turns: 8

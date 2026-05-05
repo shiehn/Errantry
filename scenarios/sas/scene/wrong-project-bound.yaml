@@ -1,0 +1,37 @@
+name: scene-wrong-project-bound
+description: |
+  No project is bound at scenario start. The agent is asked to create a scene,
+  which the CLI cannot do without an active project. Tests whether:
+    1. The CLI's "no project" error message clearly directs the agent to fix it
+    2. The agent invokes `sas project ...` to investigate / bind a project
+    3. After binding, the scene creation succeeds
+
+  This exercises a multi-step recovery: error → discovery → corrective action →
+  retry. The goal is satisfied only after the project is bound AND the scene
+  exists.
+
+surface: cli
+
+setup:
+  # Note: no `bind` block — the project is intentionally unbound at start.
+  fixture: blank-project
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 14
+
+goal: |
+  Create a scene called "Bridge". The session may not have a project bound yet —
+  if so, take whatever steps the CLI suggests to get a working project.
+
+assertions:
+  - dbQuery:
+      sql: "SELECT name FROM scenes WHERE name = ?"
+      args: ["Bridge"]
+      toHaveAtLeast: 1
+  - toolCalled:
+      contains: "project"
+  - errorRecovered: null
+  - budget:
+      turns: 12

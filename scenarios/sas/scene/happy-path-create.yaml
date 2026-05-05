@@ -1,0 +1,31 @@
+name: happy-path-create-scene
+description: |
+  Baseline scenario. Agent has never used `sas` before and must create a scene
+  called "Verse". Tests whether the CLI's --help and command organization are
+  enough for the agent to find `sas scene create` without external docs.
+
+surface: cli
+
+setup:
+  fixture: blank-project
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+
+goal: |
+  Create a new scene called "Verse" in the currently-bound project.
+
+assertions:
+  - dbQuery:
+      sql: "SELECT name FROM scenes WHERE name = ?"
+      args: ["Verse"]
+      toHaveAtLeast: 1
+  - toolCalled:
+      contains: "scene"
+  - helpInvoked: null
+  - budget:
+      turns: 6
+      errors: 2
+      frictionScore: 0.5

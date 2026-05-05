@@ -1,0 +1,33 @@
+name: scene-missing-required-arg
+description: |
+  This scenario tests how well the CLI's error message guides an agent that
+  invokes `sas scene create` without a name. Commander's default missing-
+  argument error is terse; the test verifies the agent reads it, infers the
+  fix, and supplies a name on the next attempt.
+
+  This is the canonical "is your CLI self-teaching" test — a strong pass means
+  errors carry enough signal to recover; a fail means the agent gives up or
+  flounders.
+
+surface: cli
+
+setup:
+  fixture: blank-project
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+
+goal: |
+  Create a new scene. The user did not specify a name — pick a sensible default
+  like "Untitled Scene" if the CLI requires one.
+
+assertions:
+  - dbQuery:
+      sql: "SELECT COUNT(*) AS n FROM scenes"
+      toMatch: { n: 1 }
+  - toolCalled:
+      contains: "scene"
+  - budget:
+      turns: 10

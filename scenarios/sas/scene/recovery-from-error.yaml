@@ -1,0 +1,39 @@
+name: scene-recovery-from-error
+description: |
+  The agent is given a goal that almost certainly involves making at least
+  one wrong call (e.g. wrong subcommand, wrong flag, missing arg). The
+  scenario passes only if:
+    1. The agent encountered at least one error (proving the test bit)
+    2. The agent recovered (subsequent successful invocation)
+    3. The final state matches the goal
+
+  This is the canonical "do your error messages teach the agent" test —
+  if a strong agent never errors, you can't measure error legibility.
+
+surface: cli
+
+setup:
+  fixture: blank-project
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+  system: |
+    You are testing a CLI you have never used before. The binary "sas" is on
+    PATH. You may use --help and any error messages the CLI gives you.
+
+    IMPORTANT: Try the most natural-sounding command FIRST without consulting
+    --help. Only fall back to --help after a command fails. We are testing
+    whether the CLI's error messages are intelligible enough to recover.
+
+goal: |
+  Set the project tempo to 128 BPM.
+
+assertions:
+  - dbQuery:
+      sql: "SELECT bpm FROM projects ORDER BY rowid DESC LIMIT 1"
+      toMatch: { bpm: 128 }
+  - errorRecovered: null
+  - budget:
+      turns: 10

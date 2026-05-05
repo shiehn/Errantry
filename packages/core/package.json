@@ -1,0 +1,50 @@
+{
+  "name": "@errantry/core",
+  "version": "0.0.1",
+  "description": "Agent loop, scenario format, and assertion matchers for the Errantry framework.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./scenario": {
+      "types": "./dist/scenario/index.d.ts",
+      "import": "./dist/scenario/index.js"
+    },
+    "./agent": {
+      "types": "./dist/agent/index.d.ts",
+      "import": "./dist/agent/index.js"
+    },
+    "./surfaces": {
+      "types": "./dist/surfaces/index.d.ts",
+      "import": "./dist/surfaces/index.js"
+    },
+    "./assertions": {
+      "types": "./dist/assertions/index.d.ts",
+      "import": "./dist/assertions/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "openai": "^4.76.0",
+    "yaml": "^2.6.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "license": "MIT"
+}
