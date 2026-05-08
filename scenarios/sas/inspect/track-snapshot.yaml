@@ -1,0 +1,46 @@
+name: inspect-bass-track
+description: |
+  Vague "describe this track" ask. `sas_inspect_track` accepts engine id,
+  name, OR partial name as `trackId` — strongest built-in name resolver
+  in the surface. Tests whether help text communicates this and whether
+  the agent can avoid an unnecessary discovery turn.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls `sas inspect track` with no value → required-param
+      error. Friction on whether the error suggests passing the name.
+    - Agent does `sas dsl_list_tracks` first to find the id when "bass"
+      would have worked → friction on the param description.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Tell me about the bass track.
+
+metadata:
+  exercises:
+    - sas_inspect_track
+
+assertions:
+  - toolCalled:
+      matches: "(inspect|track)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

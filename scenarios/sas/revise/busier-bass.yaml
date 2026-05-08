@@ -1,0 +1,57 @@
+name: busier-bass
+description: |
+  Vague iterative ask. Multi-step: agent must (a) find the bass track id,
+  (b) call `revise_track` with `direction="busier"` (or similar). The
+  action is LLM-backed (re-composes the track) so it's slow.
+
+  We seed the bass with `sas make beat --roles bass` so there's actual
+  MIDI to revise. Without seed MIDI, revise_track may error.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls `revise_track` with no `direction` (required) → friction
+      on whether the missing-required error names the param.
+    - Agent passes the track *name* as trackId → friction on resolver
+      help (revise_track schema doesn't say it accepts names).
+    - Agent guesses `--style` or `--prompt` instead of `direction` →
+      friction on `--help` documentation.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    # Seed a populated scene so the bass has MIDI to revise. We use
+    # make_beat with the bass role specifically — this also tests that
+    # downstream commands still see a freshly-created track.
+    - sas make beat --roles bass --vibe baseline
+  # make_beat composition takes 60–120s per track; the per-command timeout
+  # must accommodate it, but only the seed needs the long timeout — the
+  # agent's revise_track call also takes that long, so keep it set.
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+  command_timeout_ms: 180000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Make the bass busier.
+
+metadata:
+  exercises:
+    - revise_track
+
+assertions:
+  - toolCalled:
+      contains: "revise"
+  - budget:
+      turns: 12
+      errors: 6
+      frictionScore: 0.5

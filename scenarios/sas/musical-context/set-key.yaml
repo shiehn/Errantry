@@ -1,0 +1,47 @@
+name: set-key-c-minor
+description: |
+  Vague musical-context change. Tests whether the agent maps "switch to C
+  minor" to a `set_musical_context key="C minor"` call. The schema has a
+  conditional requirement: `key` is required if `chords` is provided —
+  lone `key` is allowed. Good test of whether help/error surfaces convey
+  conditional requirements clearly.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes `key=Cm` (shorthand) instead of the documented
+      "C minor" form → friction on the param description.
+    - Agent guesses `--key C` and `--mode minor` as separate params →
+      friction on whether the schema's single-string `key` form is
+      discoverable.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Switch to C minor.
+
+metadata:
+  exercises:
+    - set_musical_context
+
+assertions:
+  - toolCalled:
+      matches: "(musical_context|context|key)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

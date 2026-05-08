@@ -1,0 +1,46 @@
+name: inspect-verse
+description: |
+  Vague "tell me about this scene" ask. `sas_inspect_scene` accepts the
+  scene name OR id (built-in resolver, also has a `current` flag to default
+  to the active scene). One of the rare actions where natural-language
+  references work without an explicit lookup turn — high-value test of
+  whether the help text surfaces this flexibility.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent does an upstream `sas scene list` to look up the id when it
+      didn't need to → friction signal on whether help text mentions
+      name-acceptance.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Tell me about the verse.
+
+metadata:
+  exercises:
+    - sas_inspect_scene
+
+assertions:
+  - toolCalled:
+      matches: "(inspect|scene)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

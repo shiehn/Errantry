@@ -1,0 +1,65 @@
+name: add-melody-track
+description: |
+  Vague creative ask: "add a melody on top". Tests whether the agent maps
+  free-form intent to `generate_track` with `role=lead` (or `keys`/`melody`)
+  and a sensible `prompt`. The action is LLM-backed (per-track composition)
+  so it's slow — needs `command_timeout_ms` override.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `make_beat` (composite, multi-track) and gets a
+      multi-track project when only one was asked for → friction on
+      whether `generate_track` is more discoverable for single-track
+      intents.
+    - Agent skips the prompt param (just role) and the action defaults
+      vaguely → friction on whether the prompt is required and described
+      well in `--help`.
+    - Agent picks role=melody (not in canonical taxonomy) and gets a
+      validation error → friction on whether the error lists valid roles.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    # Seed an active scene so generate_track has somewhere to land. Without
+    # a scene the action either errors or auto-creates one (sceneName param).
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+  command_timeout_ms: 180000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Add a melody on top.
+
+metadata:
+  exercises:
+    - generate_track
+
+assertions:
+  # At least one new track exists with a melodic role (lead, keys, or pads
+  # are all reasonable interpretations of "melody"). We don't pin to one
+  # role because the prompt is genuinely ambiguous.
+  - dbQuery:
+      sql: |
+        SELECT id FROM tracks
+        WHERE role IN ('lead', 'keys', 'pads', 'arp', 'synth')
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      toHaveAtLeast: 1
+  - budget:
+      turns: 12
+      errors: 6
+      frictionScore: 0.5

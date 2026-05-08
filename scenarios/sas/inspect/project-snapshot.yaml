@@ -1,0 +1,48 @@
+name: inspect-full-project
+description: |
+  Vague "show me everything" ask. `sas_inspect_project` returns a
+  consolidated snapshot — scenes, tracks, musical context, renders,
+  history. Higher-level than `summarize` (which is free-text) and broader
+  than per-scene inspect. Tests whether the agent picks the right
+  granularity for a "full state" request.
+
+  Compare this against summarize/describe — both are valid for an
+  open-ended ask. The distinction we want to surface in friction signals:
+    - if user says "describe", `summarize` may be more natural
+    - if user says "show me everything", `inspect_project` is more natural
+  Friction would tell us the help text doesn't differentiate the two.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Kicks role=kicks
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Show me everything in this project.
+
+metadata:
+  exercises:
+    - sas_inspect_project
+
+assertions:
+  - toolCalled:
+      matches: "(inspect|project|summarize)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5
