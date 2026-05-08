@@ -42,8 +42,12 @@ metadata:
     - scene_get_all
 
 assertions:
+  # Multiple valid paths per the description: `sas scene list`,
+  # `sas inspect project`, `sas summarize project`, `sas run scene_get_all`.
+  # All surface the scene roster; broaden the matcher to any of them
+  # so we measure friction, not path preference.
   - toolCalled:
-      contains: "scene"
+      matches: "(scene|inspect|summarize|list-actions)"
   - budget:
       turns: 6
       errors: 3
