@@ -29,7 +29,7 @@ agent:
     When the goal is satisfied, respond without calling a tool.
 
 goal: |
-  Stop the playback.
+  Stop.
 
 metadata:
   exercises:

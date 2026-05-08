@@ -30,7 +30,7 @@ agent:
     When the goal is satisfied, respond without calling a tool.
 
 goal: |
-  Tell me which project is currently bound and what scenes it has.
+  What's loaded right now?
 
 metadata:
   exercises:

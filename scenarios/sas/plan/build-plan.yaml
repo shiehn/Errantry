@@ -33,8 +33,7 @@ agent:
     When the goal is satisfied, respond without calling a tool.
 
 goal: |
-  Use the CLI to build a plan for adding a pad track — output the plan
-  but don't execute it.
+  Plan how to add a pad track — but don't actually run it yet.
 
 metadata:
   exercises:
