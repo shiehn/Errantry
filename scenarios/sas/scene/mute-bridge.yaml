@@ -1,0 +1,51 @@
+name: mute-bridge-scene
+description: |
+  Vague scene-level mute ask. Distinct from `dsl_track_mute` (per-track)
+  — `scene_set_mute` mutes every track in the named scene at once.
+  Asserting on toolCalled rather than DB because mute lives in engine
+  state.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `dsl_track_mute` and tries to mute each track in
+      the bridge individually (after a discovery turn to list them) →
+      workable but inefficient; friction signal on whether
+      `scene_set_mute`'s description is discoverable when intent is
+      "mute the whole section".
+    - Agent passes the scene *name* "Bridge" as sceneId and the error
+      doesn't say "use sas scene list to find the id" → friction on
+      `scene_set_mute` error message.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Bridge --json
+    - sas dsl_track_create name=Pad role=pads
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Mute the bridge entirely.
+
+metadata:
+  exercises:
+    - scene_set_mute
+
+assertions:
+  - toolCalled:
+      contains: "mute"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

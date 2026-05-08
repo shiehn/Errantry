@@ -1,0 +1,47 @@
+name: get-chorus-length
+description: |
+  Vague duration query. Read-only. `scene_get_bars` accepts name OR id —
+  same resolver as `scene_set_bars` and `scene_duplicate`.
+
+  We seed two scenes so the agent has to pick by name. Asserts via
+  toolCalled — engine value is the truth and we don't want to depend on
+  the DB cache for length_bars in a read-only test.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent runs `sas inspect scene <id>` and reports a longer summary
+      than asked → workable but indirect; friction on whether
+      `scene_get_bars` is discoverable for the narrow ask.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Chorus --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  How long is the chorus?
+
+metadata:
+  exercises:
+    - scene_get_bars
+
+assertions:
+  - toolCalled:
+      matches: "(scene_get_bars|inspect|bars)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

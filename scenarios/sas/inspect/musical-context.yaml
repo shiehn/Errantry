@@ -1,0 +1,46 @@
+name: get-musical-context
+description: |
+  Vague musical-state ask. Read-only — returns the active scene's key,
+  BPM, chord progression, and genre.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent runs `sas transport bpm` for tempo only and stops there →
+      partial answer. Friction signal on whether the action description
+      makes the broader scope ("key + chords + genre + bpm") visible.
+    - Agent does not realize an active scene is required and gets a
+      "no active scene" error → friction signal on the error message.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    # Need a bound project with an active scene; otherwise the action errors.
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What key are we in?
+
+metadata:
+  exercises:
+    - get_musical_context
+
+assertions:
+  # Either the dedicated context call or an inspect call surfaces key/mode.
+  - toolCalled:
+      matches: "(musical_context|context|inspect|scene)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

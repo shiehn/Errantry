@@ -1,0 +1,46 @@
+name: save-checkpoint
+description: |
+  Vague "save state" ask. Tests whether the agent (a) finds the history
+  surface, (b) supplies a name (the only required param). The required
+  param is the wrinkle — agents that call `sas history checkpoint` with
+  no name should get an error that teaches them to provide one.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent runs `sas history checkpoint` with no name and the error
+      doesn't suggest a default-name workflow → friction signal.
+    - Agent reaches for git/save metaphors (`sas save`, `sas commit`) and
+      doesn't pivot to `sas history --help` → friction on top-level help.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    # Seed a small amount of state so there's something worth checkpointing.
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Save where we are.
+
+metadata:
+  exercises:
+    - sas_history_checkpoint
+
+assertions:
+  - toolCalled:
+      contains: "checkpoint"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

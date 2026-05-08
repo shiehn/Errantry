@@ -1,0 +1,48 @@
+name: list-checkpoints
+description: |
+  Vague history-listing ask. Read-only. We seed one explicit checkpoint
+  via preCommand so the listing has content (otherwise the answer
+  collapses to "none yet" and we can't tell apart "right command, empty
+  list" from "wrong command, no output").
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas history list` first (works) — happy path.
+    - Agent reaches for `sas list-actions | grep history` →
+      list-actions discovery, then `sas help sas_history_list` → reasonable
+      slow path. Friction signal on top-level discoverability of `history`.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    # Create a named checkpoint so the history isn't empty.
+    # `sas history checkpoint <name>` — name is positional, not --name.
+    - sas history checkpoint baseline
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Show me my saves.
+
+metadata:
+  exercises:
+    - sas_history_list
+
+assertions:
+  - toolCalled:
+      matches: "(history|checkpoint)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

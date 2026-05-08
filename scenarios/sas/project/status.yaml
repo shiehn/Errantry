@@ -1,0 +1,47 @@
+name: project-status
+description: |
+  Vague "what's the state?" ask. Read-only. Returns the currently-bound
+  project plus its scene list — primary "am I ready to work?" call.
+  Multiple valid paths:
+    - `sas project status`
+    - `sas run project_get_status`
+    - `sas inspect project`
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas status` (system health) which exists at top
+      level → reasonable fallback; but `sas status` returns API/engine
+      health, NOT project state. Friction signal on whether the agent
+      pivots when the output doesn't match the question.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What's loaded right now?
+
+metadata:
+  exercises:
+    - project_get_status
+
+assertions:
+  # Either `project status` form or any inspect form satisfies. We don't
+  # want to overfit on the exact subcommand tree.
+  - toolCalled:
+      matches: "(project|inspect|status)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

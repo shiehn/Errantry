@@ -1,0 +1,52 @@
+name: list-tracks-in-verse
+description: |
+  Vague "what's in this scene?" ask. Multi-step: agent must (a) find the
+  Verse's id (or use a name resolver if available), (b) call
+  `scene_get_tracks` (which requires the id, no name resolver here).
+
+  We seed two tracks in the Verse so the answer has content. The action's
+  schema requires `sceneId` — agents that try `name=Verse` get a friction
+  signal on the resolver inconsistency between sibling actions
+  (`scene_duplicate` accepts name, `scene_get_tracks` does not).
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls `dsl_list_tracks` (project-wide) and answers from that
+      output by filtering manually → workable but indirect; friction
+      signal on whether `scene_get_tracks` is more discoverable.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Kicks role=kicks
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What tracks are in the verse?
+
+metadata:
+  exercises:
+    - scene_get_tracks
+
+assertions:
+  # Either scene_get_tracks (preferred) OR dsl_list_tracks (acceptable)
+  # OR an inspect call surfaces the answer.
+  - toolCalled:
+      matches: "(scene_get_tracks|list_tracks|inspect|track list)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

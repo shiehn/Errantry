@@ -1,0 +1,45 @@
+name: list-known-projects
+description: |
+  Vague meta-discovery ask. Read-only. Lists every project in the DB —
+  not just the bound one. Multiple valid paths:
+    - `sas project list`
+    - `sas run list_projects`
+
+  Failure modes worth distinguishing in the trace:
+    - Agent runs `sas inspect project` (singular, current-project only)
+      and reports just the bound project → friction signal on whether
+      `inspect` and `list_projects` are sufficiently distinguished in
+      help text.
+
+surface: cli
+
+setup:
+  fixture: blank
+  # The blank fixture mount creates an `errantry-blank-<...>` project, so
+  # at least one row is guaranteed. No other seeding needed.
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Which projects do I have?
+
+metadata:
+  exercises:
+    - list_projects
+
+assertions:
+  - toolCalled:
+      contains: "project"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5
