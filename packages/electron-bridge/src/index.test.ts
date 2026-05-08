@@ -91,4 +91,83 @@ describe('installErrantryBridge', () => {
     expect(res.status).toBe(501);
     await noDb.close();
   });
+
+  describe('/errantry/chat', () => {
+    it('returns 501 when no onChat handler is configured', async () => {
+      const res = await fetch(url('/errantry/chat'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'hi' }),
+      });
+      expect(res.status).toBe(501);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toMatch(/onChat handler not registered/);
+    });
+
+    it('rejects empty messages with 400', async () => {
+      const withChat = await installErrantryBridge({
+        port: 0,
+        onChat: async () => ({ text: 'unused' }),
+      });
+      const res = await fetch(`${withChat.url}/errantry/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: '   ' }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toMatch(/non-empty/);
+      await withChat.close();
+    });
+
+    it('forwards the message to onChat and returns its result', async () => {
+      const calls: string[] = [];
+      const withChat = await installErrantryBridge({
+        port: 0,
+        onChat: async (message) => {
+          calls.push(message);
+          return {
+            text: 'Created scene "Verse".',
+            events: [
+              { type: 'tool_call_done', toolName: 'scene_create', result: { success: true } },
+            ],
+            iterations: 2,
+            iterationLimitHit: false,
+          };
+        },
+      });
+      const res = await fetch(`${withChat.url}/errantry/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'create a scene called Verse' }),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        text: string;
+        iterations: number;
+        iterationLimitHit: boolean;
+      };
+      expect(body.text).toBe('Created scene "Verse".');
+      expect(body.iterations).toBe(2);
+      expect(body.iterationLimitHit).toBe(false);
+      expect(calls).toEqual(['create a scene called Verse']);
+      await withChat.close();
+    });
+
+    it('returns 500 when the onChat handler throws', async () => {
+      const withChat = await installErrantryBridge({
+        port: 0,
+        onChat: async () => {
+          throw new Error('Chat plugin not active');
+        },
+      });
+      const res = await fetch(`${withChat.url}/errantry/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'hi' }),
+      });
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      await withChat.close();
+    });
+  });
 });

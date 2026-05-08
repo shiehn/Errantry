@@ -10,7 +10,7 @@
  *   ScenarioResult— output of one scenario run
  */
 
-export type SurfaceKind = 'cli' | 'mcp';
+export type SurfaceKind = 'cli' | 'mcp' | 'chat';
 export type ProviderKind = 'openai' | 'anthropic';
 
 // ──────────────────────────────────────────────────────────────────────────

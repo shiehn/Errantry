@@ -4,7 +4,13 @@ import type { Server } from 'node:http';
 import { validateReadOnlySql } from './db-query.js';
 import type { ErrantryBridgeOptions, InstalledBridge } from './types.js';
 
-export type { ErrantryBridgeOptions, InstalledBridge, DbHandle, BridgeFixtureMountResult } from './types.js';
+export type {
+  ErrantryBridgeOptions,
+  InstalledBridge,
+  DbHandle,
+  BridgeFixtureMountResult,
+  BridgeChatResult,
+} from './types.js';
 
 const DEFAULT_PORT = 7654;
 const DEFAULT_HOST = '127.0.0.1';
@@ -31,6 +37,7 @@ export async function installErrantryBridge(
   registerFixture(app, options);
   registerDbQuery(app, options);
   registerReset(app, options);
+  registerChat(app, options);
 
   const server = await listen(app, port, host);
   const address = server.address();
@@ -143,6 +150,31 @@ function registerReset(app: Express, opts: ErrantryBridgeOptions): void {
       if (opts.onReset) await opts.onReset();
       audit(opts, 'POST', '/errantry/reset', true);
       res.status(204).send();
+    } catch (err) {
+      next(err);
+    }
+  });
+}
+
+function registerChat(app: Express, opts: ErrantryBridgeOptions): void {
+  app.post('/errantry/chat', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!opts.onChat) {
+        audit(opts, 'POST', '/errantry/chat', false);
+        res.status(501).json({
+          error: 'onChat handler not registered. Pass `onChat` to installErrantryBridge.',
+        });
+        return;
+      }
+      const message = String(req.body?.message ?? '').trim();
+      if (!message) {
+        audit(opts, 'POST', '/errantry/chat', false);
+        res.status(400).json({ error: 'Body must include a non-empty `message` string.' });
+        return;
+      }
+      const result = await opts.onChat(message);
+      audit(opts, 'POST', '/errantry/chat', true);
+      res.json(result);
     } catch (err) {
       next(err);
     }

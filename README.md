@@ -28,13 +28,24 @@ You'll see a markdown report with green assertions, turn count, and a trace of t
 
 That hypothesis is testable. Define the user's ask in plain English, hand the agent the CLI binary on `PATH`, let it use `--help` / errors / dry-runs, and assert the resulting state. If the assertion fails, your help text or error message is the weak link — and the trace tells you which one.
 
+### Surfaces
+
+The agent's reach into the system under test is mediated by a **surface**:
+
+| `surface:` | What the agent sees | Use when |
+|---|---|---|
+| `cli` | A single `bash` tool. Each call spawns a fresh subprocess. | The thing under test is a CLI binary on `PATH`. |
+| `chat` | A single `chat({message})` tool that POSTs to `/errantry/chat` on your bridge. The bridge forwards to your in-app chat assistant, which drives the underlying tools and replies. | The thing under test is the *chat-driven UX* of your app — does a natural-language ask deliver the same outcome as the bare CLI? |
+
+A `chat` scenario passes when the assistant turns one plain-English message into the right state change. Because both surfaces share the assertion vocabulary (`dbQuery`, `toolCalled`, `budget`), you can write a CLI scenario and a chat scenario against the same goal and compare their friction scores.
+
 ## Packages
 
 | Package | Role |
 |---------|------|
 | `@errantry/core` | Agent loop, scenario format (YAML), assertion matchers. OpenAI + Anthropic + Mock providers. Test-runner-agnostic. |
 | `@errantry/cli` | `errantry run scenario.yaml` standalone runner with `--mock` for tokenless dry-runs. |
-| `@errantry/electron-bridge` | Drop-in HTTP bridge for Electron-TS apps under test — exposes `/errantry/{health,smoke,db/query,fixture,reset,app-config}` from your main process. Read-only SQL guard. |
+| `@errantry/electron-bridge` | Drop-in HTTP bridge for Electron-TS apps under test — exposes `/errantry/{health,smoke,db/query,fixture,reset,app-config,chat}` from your main process. Read-only SQL guard. |
 | `@errantry/playwright` | First-class Playwright extension with `errantry` and `app` fixtures, custom `expect` matchers (`toolCalled`, `budgetRespected`, `toHaveRow`). |
 
 ## Scenario format

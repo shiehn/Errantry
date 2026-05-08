@@ -55,6 +55,17 @@ describe('parseScenario', () => {
     ).toThrow(/single-key/);
   });
 
+  it('accepts chat as a surface kind', () => {
+    const scenario = parseScenario({
+      name: 'create-scene-via-chat',
+      surface: 'chat',
+      agent: {},
+      goal: 'Create a scene called Verse.',
+      assertions: [{ toolCalled: { contains: 'chat' } }],
+    });
+    expect(scenario.surface).toBe('chat');
+  });
+
   it('preserves description and system prompt when provided', () => {
     const scenario = parseScenario({
       name: 's',

@@ -15,6 +15,18 @@ export interface BridgeFixtureMountResult {
   projectPath: string;
 }
 
+/**
+ * Shape returned by the chat handler. Mirrors `ChatResponse` from
+ * sas-chat-plugin but the bridge package can't import that type — we
+ * forward an opaque payload by duck-typing.
+ */
+export interface BridgeChatResult {
+  text: string;
+  events?: unknown[];
+  iterations?: number;
+  iterationLimitHit?: boolean;
+}
+
 export interface ErrantryBridgeOptions {
   /** Port to listen on. Defaults to 7654 (matches sas-assistant's simple-test-server). */
   port?: number;
@@ -40,6 +52,15 @@ export interface ErrantryBridgeOptions {
 
   /** Reset ephemeral state between scenarios (e.g. unbind project, clear caches). */
   onReset?: () => void | Promise<void>;
+
+  /**
+   * Dispatch a natural-language message to the host app's chat assistant
+   * (e.g. ChatPanelPlugin.chat()) and return the structured response.
+   * Required by scenarios using `surface: chat`. The handler is expected
+   * to surface assistant errors via the returned `BridgeChatResult` —
+   * thrown errors become HTTP 500.
+   */
+  onChat?: (message: string) => BridgeChatResult | Promise<BridgeChatResult>;
 
   /**
    * Custom smoke-check map. Returned as part of `/errantry/smoke`. Use this

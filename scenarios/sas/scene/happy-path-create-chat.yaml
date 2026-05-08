@@ -1,0 +1,53 @@
+name: happy-path-create-scene-chat
+description: |
+  Chat-surface twin of `happy-path-create.yaml`. Same goal + same DB
+  assertion, but the probe LLM has only one tool: `chat({ message })` —
+  it sends a natural-language ask to the in-app chat assistant
+  (`@signalsandsorcery/chat-panel`), which internally drives the `sas`
+  CLI and returns a summary.
+
+  Tests whether the chat plugin's UX is good enough to deliver the
+  outcome from a plain ask — the same way a Loop-A workstation user
+  would type "make me a verse scene" and expect it to happen.
+
+surface: chat
+
+setup:
+  fixture: blank
+  smokeWaitFor:
+    - audioEngine
+    - mainWindow
+    - chatPlugin
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 4
+  system: |
+    You control a music-production app by sending natural-language
+    instructions to its built-in chat assistant. Your only tool is `chat`.
+    The assistant has full access to the app — it inspects scenes, drives
+    tools, and reports back. Be direct and specific. The assistant cannot
+    ask follow-up questions before acting, so include all relevant detail
+    in a single message. When the goal is satisfied, respond without
+    calling a tool.
+
+goal: |
+  Create a new scene called "Verse" in the currently-bound project.
+
+metadata:
+  exercises:
+    - scene_create
+  surface_variant_of: happy-path-create
+
+assertions:
+  - dbQuery:
+      sql: "SELECT name FROM loop_sections WHERE name = ?"
+      args: ["Verse"]
+      toHaveAtLeast: 1
+  - toolCalled:
+      contains: "chat"
+  - budget:
+      turns: 3
+      errors: 1
+      frictionScore: 0.5

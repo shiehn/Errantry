@@ -17,7 +17,7 @@ const AssertionEntrySchema = z
 const ScenarioSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
-  surface: z.enum(['cli', 'mcp']),
+  surface: z.enum(['cli', 'mcp', 'chat']),
   setup: z
     .object({
       fixture: z.string().optional(),

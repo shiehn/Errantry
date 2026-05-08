@@ -1,4 +1,5 @@
 import { CliSurface } from './surfaces/cli.js';
+import { ChatSurface } from './surfaces/chat.js';
 import { OpenAIProvider } from './agent/openai.js';
 import { AnthropicProvider } from './agent/anthropic.js';
 import { computeMetrics } from './metrics.js';
@@ -22,6 +23,12 @@ export interface RunScenarioOptions {
   apiKey?: string;
   /** Working directory for the bash subprocess (only used if a default CLI surface is built). */
   cwd?: string;
+  /**
+   * Bridge URL used by the default `chat` surface (e.g. `http://127.0.0.1:7654`).
+   * Required when `scenario.surface === 'chat'` and no explicit `surface` is
+   * passed. Ignored otherwise.
+   */
+  bridgeUrl?: string;
 }
 
 const DEFAULT_SYSTEM_PROMPT = [
@@ -38,7 +45,7 @@ export async function runScenario(opts: RunScenarioOptions): Promise<ScenarioRes
   const startedAt = Date.now();
 
   const provider = opts.provider ?? buildDefaultProvider(scenario);
-  const surface = opts.surface ?? buildDefaultSurface(scenario, opts.cwd);
+  const surface = opts.surface ?? buildDefaultSurface(scenario, opts.cwd, opts.bridgeUrl);
   const bridge = opts.bridge ?? new NullAppBridge();
   const apiKey = opts.apiKey ?? requiredEnv(providerEnvKey(scenario.agent.provider));
 
@@ -162,13 +169,31 @@ function buildDefaultProvider(scenario: Scenario): AgentProvider {
   );
 }
 
-function buildDefaultSurface(scenario: Scenario, cwd?: string): Surface {
+function buildDefaultSurface(
+  scenario: Scenario,
+  cwd?: string,
+  bridgeUrl?: string,
+): Surface {
   if (scenario.surface === 'cli') {
     const opts: { cwd: string; timeoutMs?: number } = { cwd: cwd ?? process.cwd() };
     if (scenario.agent.commandTimeoutMs !== undefined) {
       opts.timeoutMs = scenario.agent.commandTimeoutMs;
     }
     return new CliSurface(opts);
+  }
+  if (scenario.surface === 'chat') {
+    const url = bridgeUrl ?? process.env.ERRANTRY_BRIDGE_URL;
+    if (!url) {
+      throw new Error(
+        'Chat surface requires a bridge URL. Pass `bridgeUrl` to runScenario or ' +
+          'set ERRANTRY_BRIDGE_URL in env (e.g. http://127.0.0.1:7654).',
+      );
+    }
+    const opts: { bridgeUrl: string; timeoutMs?: number } = { bridgeUrl: url };
+    if (scenario.agent.commandTimeoutMs !== undefined) {
+      opts.timeoutMs = scenario.agent.commandTimeoutMs;
+    }
+    return new ChatSurface(opts);
   }
   throw new Error(
     `Surface "${scenario.surface}" requires an explicit Surface instance until phase 2 (mcp) lands.`,
