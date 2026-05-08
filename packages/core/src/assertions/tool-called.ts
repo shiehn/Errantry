@@ -25,7 +25,11 @@ export const toolCalled: Matcher = async (args, ctx) => {
     };
   }
 
-  const matched = ctx.result.invocations.some((inv) => {
+  // Setup-only invocations are tagged turn=0 (preCommands run before the
+  // agent loop). Match strictly against the agent's calls (turn >= 1) so
+  // preCommand vocabulary cannot satisfy the assertion vacuously.
+  const agentInvocations = ctx.result.invocations.filter((inv) => inv.turn > 0);
+  const matched = agentInvocations.some((inv) => {
     if (tool && inv.call.tool !== tool) return false;
     const haystack = `${inv.call.tool} ${JSON.stringify(inv.call.args)}`;
     if (contains && !haystack.includes(contains)) return false;
@@ -40,7 +44,7 @@ export const toolCalled: Matcher = async (args, ctx) => {
         passed: false,
         message: `toolCalled did not match — agent never invoked a call that matches ${formatCriteria({ contains, matches: args.matches as string | undefined, tool })}`,
         details: {
-          invocations: ctx.result.invocations.map((i) => ({ tool: i.call.tool, args: i.call.args })),
+          invocations: agentInvocations.map((i) => ({ turn: i.turn, tool: i.call.tool, args: i.call.args })),
         },
       };
 };

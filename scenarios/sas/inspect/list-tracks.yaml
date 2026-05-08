@@ -43,8 +43,12 @@ metadata:
     - dsl_list_tracks
 
 assertions:
+  # Description above lists multiple valid paths: `sas track list`,
+  # `sas inspect project`, `sas run dsl_list_tracks`, `sas summarize project`.
+  # All of them surface the answer; pick the broadest matcher that
+  # covers them so we measure friction, not path preference.
   - toolCalled:
-      contains: "track"
+      matches: "(track|inspect|summarize|list_tracks|list-actions)"
   - budget:
       turns: 6
       errors: 3
