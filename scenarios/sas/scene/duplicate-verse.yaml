@@ -1,0 +1,58 @@
+name: duplicate-verse
+description: |
+  Vague duplication ask. `scene_duplicate` notably accepts the scene name
+  OR id for sceneId (built-in resolver) — so an agent passing "Verse" by
+  name should succeed. Tests whether the help/error surface communicates
+  the resolver flexibility, or whether the agent burns turns on
+  unnecessary id lookups.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent does an upstream `sas scene list` to look up the id when it
+      didn't need to → friction signal on the param description not
+      mentioning name-acceptance.
+    - Agent guesses `--name` for the new copy's name → friction on whether
+      the action lets you specify the duplicate's name (it doesn't — auto-
+      named).
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Make a copy of the verse.
+
+metadata:
+  exercises:
+    - scene_duplicate
+
+assertions:
+  # Two scenes (loop_sections rows) must exist — original Verse + the copy.
+  # Excludes the internal POOL scene.
+  - dbQuery:
+      sql: |
+        SELECT id FROM loop_sections
+        WHERE project_id = (
+          SELECT id FROM projects
+          WHERE name LIKE 'errantry-blank-%'
+          ORDER BY rowid DESC LIMIT 1
+        )
+        AND name != 'POOL'
+      toHaveAtLeast: 2
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

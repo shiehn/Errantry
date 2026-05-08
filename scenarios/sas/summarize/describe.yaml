@@ -1,0 +1,50 @@
+name: describe-project
+description: |
+  Vague open-ended ask. Read-only. Multiple valid paths:
+    - `sas summarize project` (preferred — natural-language summary)
+    - `sas inspect project` (structural snapshot)
+    - `sas run summarize_project verbosity=concise`
+    - `sas run sas_inspect_project`
+
+  We seed a non-trivial project so the summary has content. Friction
+  signal: if the agent reaches for `sas list <X>` and stitches by hand
+  instead of calling the dedicated summarize action, top-level help isn't
+  surfacing the inspection composites.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Chorus --json
+    - sas dsl_track_create name=Kicks role=kicks
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What do we have so far?
+
+metadata:
+  exercises:
+    - summarize_project
+
+assertions:
+  # Either summary form or any inspect form satisfies "describe what we've
+  # got" — both are legitimate paths and we don't want to pick a winner.
+  - toolCalled:
+      matches: "(summarize|inspect)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

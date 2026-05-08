@@ -1,0 +1,47 @@
+name: solo-bass
+description: |
+  Vague solo ask. Mirror of mute-kick: agent must look up the bass id, then
+  call `dsl_track_solo` with `solo=true`. The boolean param is the wrinkle —
+  soloing requires explicitly passing true (not just calling the action).
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls `dsl_track_solo trackId=<id>` without `solo=true` — the
+      schema requires both. Friction signal on whether the missing-required
+      error explicitly names the missing param.
+    - Agent passes the track *name* "Bass" as trackId → friction on the
+      `dsl_track_solo` error message (doesn't say "use sas inspect to find
+      the id").
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Solo the bass.
+
+metadata:
+  exercises:
+    - dsl_track_solo
+
+assertions:
+  - toolCalled:
+      contains: "solo"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

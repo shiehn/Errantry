@@ -1,0 +1,50 @@
+name: rename-bass
+description: |
+  Vague rename ask. The agent must (a) discover the bass track id, (b) pick
+  a new display name from the user's phrasing ("call it 'Sub Bass'"), and
+  (c) call `dsl_track_rename`. display-only — `engine_track_id` stays
+  stable, so this is purely a UI metadata change. Tests whether the error
+  message tells the agent the right param name (`name`, not `newName` or
+  `displayName`).
+
+  Failure modes worth distinguishing in the trace:
+    - Agent guesses param `newName=...` or `displayName=...` →
+      friction on `--help` for the action.
+    - Agent quotes the new name with extra characters (e.g. literal
+      quotes) → friction on shell-escaping examples in help.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Rename the bass track to "Sub Bass".
+
+metadata:
+  exercises:
+    - dsl_track_rename
+
+assertions:
+  # Either the action name (`rename`) or the new value (`Sub Bass`) suffices —
+  # any path that reaches the rename action will surface one of them.
+  - toolCalled:
+      contains: "rename"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

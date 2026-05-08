@@ -1,0 +1,71 @@
+name: delete-bass
+description: |
+  Vague destructive ask. Agent must (a) find the bass id and (b) call
+  `dsl_track_delete`. We seed two tracks (kicks + bass) so deletion is
+  *selective* — if the agent just nukes everything we'd see it in the
+  trace. Asserts via DB to confirm only the bass row was removed.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes the track *name* "Bass" as trackId → friction on
+      `dsl_track_delete` error message.
+    - Agent looks for a `--confirm` flag and stalls → friction on
+      whether destructive actions surface dry-run / confirm hints.
+    - Agent deletes the wrong track → catastrophic but caught by the DB
+      assertion (kicks must remain).
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Kicks role=kicks
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Get rid of the bass track.
+
+metadata:
+  exercises:
+    - dsl_track_delete
+
+assertions:
+  # No bass track remains in the most-recently-bound errantry blank fixture.
+  - dbQuery:
+      sql: |
+        SELECT id FROM tracks
+        WHERE role = ?
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      args: ["bass"]
+      toHaveRows: 0
+  # The kicks track must survive — confirms selective deletion, not nuke-all.
+  - dbQuery:
+      sql: |
+        SELECT id FROM tracks
+        WHERE role = ?
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      args: ["kicks"]
+      toHaveAtLeast: 1
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

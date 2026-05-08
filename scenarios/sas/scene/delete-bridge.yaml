@@ -1,0 +1,67 @@
+name: delete-bridge
+description: |
+  Vague destructive ask on a scene. We seed three scenes so deletion is
+  selective — agent must pick the right one. Asserts via DB that exactly
+  the bridge row is gone and the others remain.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes the scene *name* "Bridge" as sceneId — `scene_delete`
+      requires the id (unlike `scene_duplicate` which accepts name).
+      Friction signal on resolver inconsistency between sibling actions.
+    - Agent deletes the wrong scene or all scenes → caught by the
+      "Verse + Chorus must remain" assertion.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Chorus --json
+    - sas scene create Bridge --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Delete the bridge.
+
+metadata:
+  exercises:
+    - scene_delete
+
+assertions:
+  # The bridge must be gone…
+  - dbQuery:
+      sql: |
+        SELECT id FROM loop_sections
+        WHERE name = 'Bridge'
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      toHaveRows: 0
+  # …and Verse + Chorus must survive.
+  - dbQuery:
+      sql: |
+        SELECT id FROM loop_sections
+        WHERE name IN ('Verse', 'Chorus')
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      toHaveAtLeast: 2
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

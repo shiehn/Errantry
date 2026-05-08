@@ -1,0 +1,46 @@
+name: get-tempo
+description: |
+  Vague read-only query. Agent must find a way to read the live BPM. Multiple
+  valid paths:
+    - `sas transport bpm` (no value → reads current)
+    - `sas run dsl_get_tempo_info`
+    - `sas inspect project` (likely surfaces it as part of the snapshot)
+    - `sas run get_musical_context` (returns key + bpm)
+
+  Friction signal: if the agent ends up running a mutating command first to
+  "check" the value (e.g., `sas transport bpm 120`), top-level help isn't
+  teaching that read forms exist.
+
+  Engine state is the truth (live BPM); we don't assert on a value, just on
+  the agent making a sensible read call.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What's the tempo?
+
+metadata:
+  exercises:
+    - dsl_get_tempo_info
+
+assertions:
+  - toolCalled:
+      contains: "bpm"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

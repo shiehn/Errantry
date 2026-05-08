@@ -1,0 +1,61 @@
+name: set-chorus-bars-8
+description: |
+  Vague configuration ask with a specific number. The agent must (a) find
+  the chorus, (b) call `scene_set_bars`, and (c) pass `barLength=8`. The
+  schema constrains barLength to {2, 4, 8, 16} — useful test of whether
+  the error message tells the agent the allowed values when it guesses
+  wrong (e.g., `barLength=6`).
+
+  Like `scene_duplicate`, `scene_set_bars` accepts name OR id for sceneId.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent picks `barLength=6` or another non-allowed value → friction
+      signal on whether the rejection error lists the {2,4,8,16} enum.
+    - Agent passes `bars=8` instead of `barLength=8` → friction on
+      param-name help.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Chorus --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Make the chorus 8 bars long.
+
+metadata:
+  exercises:
+    - scene_set_bars
+
+assertions:
+  # The chorus row must show length_bars = 8 in the loop_sections cache
+  # (column is `length_bars`, not `bars` — see migration 002).
+  - dbQuery:
+      sql: |
+        SELECT id FROM loop_sections
+        WHERE name = 'Chorus'
+          AND length_bars = ?
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      args: [8]
+      toHaveAtLeast: 1
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5
