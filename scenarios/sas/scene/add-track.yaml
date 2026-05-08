@@ -1,0 +1,48 @@
+name: add-orphan-track-to-verse
+description: |
+  Vague "add this to that" ask. `scene_add_track` and `scene_move_track`
+  do nearly the same thing — `add` is meant for placing a pool/orphan
+  track INTO a scene; `move` is for relocating between scenes.
+  We test both via separate scenarios, with this one phrased as "add" to
+  match the action name.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent uses `scene_move_track` here even though the source-scene
+      semantics differ slightly → fine outcome but friction signal on
+      whether help text disambiguates the two.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Make sure the bass is in the verse.
+
+metadata:
+  exercises:
+    - scene_add_track
+
+assertions:
+  # Either add_track or move_track satisfies the goal — friction signal
+  # tells us which the agent reaches for under "add" phrasing.
+  - toolCalled:
+      matches: "(add_track|move_track|scene)"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

@@ -1,0 +1,64 @@
+name: apply-saved-plan
+description: |
+  End-to-end planning workflow. Multi-step:
+    1. Agent builds a plan via `sas plan ... --plan-out <file>`
+    2. Agent applies the plan via `sas apply <file>`
+
+  Tests whether the agent can chain build → apply without skipping the
+  intermediate file. Some agents will try to apply directly from stdin
+  or memory; the CLI wants a file path.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent runs `sas plan` and forgets to capture the output → has
+      nothing to apply. Friction signal on whether `sas plan --help`
+      surfaces `--plan-out`.
+    - Agent calls `sas apply` with a pseudo-path (e.g., `sas apply -`)
+      and the error doesn't suggest writing the plan to a file first
+      → friction signal on the missing/invalid-path error message.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 14
+  command_timeout_ms: 180000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Build a plan to add a pad track and run it.
+
+metadata:
+  exercises:
+    - sas_apply_plan
+
+assertions:
+  - toolCalled:
+      contains: "apply"
+  # A pad-role track must have landed.
+  - dbQuery:
+      sql: |
+        SELECT id FROM tracks
+        WHERE role = ?
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      args: ["pads"]
+      toHaveAtLeast: 1
+  - budget:
+      turns: 14
+      errors: 7
+      frictionScore: 0.5

@@ -1,0 +1,46 @@
+name: tool-search-for-reverb
+description: |
+  Vague capability-discovery ask. `tool_search` searches the action
+  registry by keyword phrase — meant as the agent's escape hatch when
+  the default surface doesn't contain the thing they need.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas list-actions | grep reverb` and parses
+      that output → workable but indirect; friction on whether
+      `tool_search` is discoverable as a first-class search surface.
+    - Agent uses `sas help reverb` (which expects an action name, not
+      a topic) → friction on whether the not-found error suggests
+      `tool_search` or `list-actions | grep`.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  How do I add reverb to a track?
+
+metadata:
+  exercises:
+    - tool_search
+
+assertions:
+  # Either tool_search OR list-actions OR help-grep satisfies the
+  # discovery intent; friction tells us which the agent prefers.
+  - toolCalled:
+      matches: "(tool_search|list-actions|help|search)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

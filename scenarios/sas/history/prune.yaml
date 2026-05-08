@@ -1,0 +1,44 @@
+name: prune-expired-checkpoints
+description: |
+  Vague maintenance ask. `sas_history_prune` drops expired-by-policy
+  checkpoints. No params. Tests discoverability of the maintenance
+  surface — likely lives under `sas history prune` or as a `sas run`
+  invocation.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas cleanup` or `sas gc` (don't exist) and
+      doesn't pivot to `sas history --help` → friction on top-level
+      help.
+    - Agent confuses `prune` with `delete` (mass vs one-by-one) →
+      friction signal on whether help text differentiates the two.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Clean up any expired checkpoints.
+
+metadata:
+  exercises:
+    - sas_history_prune
+
+assertions:
+  - toolCalled:
+      matches: "(prune|history|cleanup)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

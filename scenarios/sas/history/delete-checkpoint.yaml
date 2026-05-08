@@ -1,0 +1,46 @@
+name: delete-checkpoint
+description: |
+  Vague checkpoint-cleanup ask. The action description warns "use
+  sparingly — checkpoints are an undo safety net". Tests whether the
+  agent (a) finds the delete surface despite the warning, and (b) passes
+  the right name.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas history delete` (works) — happy path.
+    - Agent invents `sas history rm` or `sas history forget` and gets
+      "unknown command" → friction signal on top-level help.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas history checkpoint baseline
+    - sas history checkpoint after-verse
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Get rid of the baseline save.
+
+metadata:
+  exercises:
+    - sas_history_delete
+
+assertions:
+  - toolCalled:
+      matches: "(history|delete|baseline)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

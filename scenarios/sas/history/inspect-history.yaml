@@ -1,0 +1,48 @@
+name: inspect-checkpoint-history
+description: |
+  Vague "what have I saved?" ask. `sas_inspect_history` returns recent
+  checkpoint entries with name, timestamp, source, notes — richer than
+  `sas_history_list` which is name-only-ish. Friction signal: do we have
+  the right division of labor between the two surfaces?
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls `sas_history_list` and reports just names →
+      acceptable, but if the user wanted timestamps/notes it's a
+      partial answer. Friction on whether `sas_inspect_history` is
+      discoverable when users want more detail.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas history checkpoint baseline
+    - sas scene create Bridge --json
+    - sas history checkpoint after-bridge
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Show me the recent checkpoint history with timestamps.
+
+metadata:
+  exercises:
+    - sas_inspect_history
+
+assertions:
+  - toolCalled:
+      matches: "(history|checkpoint)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5
