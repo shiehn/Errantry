@@ -48,9 +48,11 @@ metadata:
 assertions:
   # Either move_track or add_track is acceptable — both produce the
   # right outcome from the user's POV. Friction signal will tell us
-  # which the agent reaches for.
+  # which the agent reaches for. Match both the action-name (snake_case
+  # via `sas run`) and the CLI subcommand form (kebab-case via
+  # `sas scene add-track`).
   - toolCalled:
-      matches: "(move_track|add_track)"
+      matches: "(move[_-]track|add[_-]track)"
   - budget:
       turns: 12
       errors: 6
