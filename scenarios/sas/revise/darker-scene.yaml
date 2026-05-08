@@ -1,0 +1,52 @@
+name: darker-scene
+description: |
+  Vague mood-revise ask. `revise_scene` re-composes every track in the
+  scene (or a scope-filtered subset) along one direction. Different from
+  `revise_track` (single-track). Required: `direction` only. The active
+  scene is used by default if `sceneId` is omitted.
+
+  We seed the scene with bass + pads via `make beat` so there's content
+  to revise. The seed itself is LLM-heavy and slow.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls `revise_scene` with no `direction` → friction on the
+      missing-required error.
+    - Agent iterates `revise_track` per track instead of the scene-level
+      composite → workable but verbose. Friction signal.
+    - Agent passes `intent="darker"` instead of `direction="darker"` →
+      friction on the param-name help.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas make beat --roles bass,pads --vibe ambient
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 14
+  command_timeout_ms: 180000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Make this section darker.
+
+metadata:
+  exercises:
+    - revise_scene
+
+assertions:
+  - toolCalled:
+      matches: "(revise_scene|revise|darker)"
+  - budget:
+      turns: 14
+      errors: 7
+      frictionScore: 0.5

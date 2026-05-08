@@ -1,0 +1,54 @@
+name: add-drums
+description: |
+  Vague drums-only ask. `dsl_generate_drums` is the drum-specialized
+  generator (kit mapping + drum quantization). It requires `track` —
+  meaning the agent first creates a drums-role track via
+  `dsl_track_create`, then generates onto it. Two-step.
+
+  Sibling distinction: `make_beat --roles kicks,snares,hats` would also
+  produce drums and is a one-shot composite — the friction signal here
+  will tell us whether agents pick the right tool for "drums only" vs.
+  "make me a beat".
+
+  Failure modes worth distinguishing in the trace:
+    - Agent skips creating a track first and the action errors → friction
+      on whether the missing-track error tells them to create one first.
+    - Agent uses `make_beat --roles kicks` and only gets one drum track
+      type → workable but misses the kit-mapping behavior.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    # Seed an empty drums track so dsl_generate_drums has somewhere to land.
+    - sas dsl_track_create name=Drums role=kicks
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+  command_timeout_ms: 180000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Generate some drums.
+
+metadata:
+  exercises:
+    - dsl_generate_drums
+
+assertions:
+  - toolCalled:
+      matches: "(generate_drums|drums|midi)"
+  - budget:
+      turns: 12
+      errors: 6
+      frictionScore: 0.5

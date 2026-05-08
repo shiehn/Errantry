@@ -1,0 +1,47 @@
+name: find-scene-id-by-name
+description: |
+  Vague "give me the id of …" ask. `scene_find_by_name` exists for cases
+  where an agent has a scene name and needs the engine id for a downstream
+  action that doesn't accept names. Most paired actions (scene_duplicate,
+  scene_set_bars, sas_inspect_scene) accept name OR id directly, so this
+  is a fallback resolver — the action's own description says "agents
+  rarely need this directly".
+
+  Friction signal: if the agent reaches for this when other actions would
+  have accepted the name directly, it tells us help text isn't surfacing
+  the resolver flexibility.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Chorus --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What's the engine id of the chorus scene?
+
+metadata:
+  exercises:
+    - scene_find_by_name
+
+assertions:
+  # Either find_by_name (preferred) OR list/inspect that surfaces ids.
+  - toolCalled:
+      matches: "(find_by_name|scene|inspect|list)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

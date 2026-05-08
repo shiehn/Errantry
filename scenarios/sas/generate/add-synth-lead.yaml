@@ -1,0 +1,63 @@
+name: add-synth-lead
+description: |
+  Vague creative ask, more specific than "add a melody on top". Tests
+  whether the agent maps "synth lead" to `add_instrument` (atomic single-
+  track AI compose) with role=lead, name="Synth Lead", and a sensible
+  prompt. add_instrument requires all three: name, role, prompt.
+
+  Compare against generate/add-melody.yaml which uses `generate_track`.
+  Both actions overlap in capability — the friction signal here will tell
+  us whether help text differentiates the two well enough for an agent to
+  pick one consistently from natural-language phrasing.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent guesses role=synth (not in the canonical taxonomy — see
+      `INSTRUMENT_LABELS`) and gets a validation error → friction on
+      whether the error lists valid roles.
+    - Agent skips `prompt` (required) → friction on the missing-required
+      error.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+  command_timeout_ms: 180000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Add a bright synth lead.
+
+metadata:
+  exercises:
+    - add_instrument
+
+assertions:
+  # A new lead-role track should exist after the call.
+  - dbQuery:
+      sql: |
+        SELECT id FROM tracks
+        WHERE role = ?
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      args: ["lead"]
+      toHaveAtLeast: 1
+  - budget:
+      turns: 12
+      errors: 6
+      frictionScore: 0.5

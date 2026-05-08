@@ -1,0 +1,43 @@
+name: check-surge-xt
+description: |
+  Vague health-check ask. `CheckSurgeXTLoadable` probes whether the Surge
+  XT VST3 can be loaded — a diagnostic the agent might run when other
+  generation actions are misbehaving (e.g., when preset-loading errors
+  appear in a make_beat run, the root cause is often Surge XT failing to
+  load in the engine).
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas status` (top-level system health) and reports
+      that — workable but misses the Surge-specific signal. Friction on
+      whether `CheckSurgeXTLoadable` is discoverable as a focused probe.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Check whether the Surge XT synth is working.
+
+metadata:
+  exercises:
+    - CheckSurgeXTLoadable
+
+assertions:
+  - toolCalled:
+      matches: "(SurgeXT|surge|Surge|status)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

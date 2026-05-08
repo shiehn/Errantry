@@ -1,0 +1,44 @@
+name: get-random-fx-chain-from-category
+description: |
+  Multi-step capability ask. The agent must (a) discover available preset
+  categories via `dsl_get_preset_categories` (or `sas list-actions`), (b)
+  pick one (e.g., a "Reverb" category), (c) call `dsl_get_random_fx_chain`
+  with the full `categoryPath`. Tests whether the chain of two FX-related
+  actions is teachable from help text alone.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls `dsl_get_random_fx_chain` with `category=reverb` (the
+      enum value used by `dsl_set_track_fx`) instead of a full filesystem
+      path → friction signal on whether the param description ("Full path
+      to the category directory") is unambiguous.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Pick a random reverb FX chain preset.
+
+metadata:
+  exercises:
+    - dsl_get_random_fx_chain
+
+assertions:
+  - toolCalled:
+      matches: "(random_fx_chain|fx_chain|RfxChain|reverb)"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5
