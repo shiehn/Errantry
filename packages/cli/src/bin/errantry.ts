@@ -20,6 +20,11 @@ program
     '--mock <commands>',
     'Path to a file with one bash command per line. Replaces the LLM with MockProvider — no OpenAI key needed. Useful for validating scenarios and assertions before paying for real runs.',
   )
+  .option(
+    '--show-trace',
+    'Dump captured stdout/stderr for every invocation (not just failures). Useful for diagnosing why an agent picked a particular path.',
+    false,
+  )
   .action(runCommand);
 
 program.parseAsync(process.argv).catch((err) => {

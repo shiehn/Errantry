@@ -11,6 +11,7 @@ import type {
   Scenario,
   ScenarioResult,
   Surface,
+  TracedInvocation,
 } from './types.js';
 
 export interface RunScenarioOptions {
@@ -43,6 +44,10 @@ export async function runScenario(opts: RunScenarioOptions): Promise<ScenarioRes
 
   await applySetup(scenario, bridge);
 
+  // Run scenario setup.preCommands BEFORE the agent loop. Output is captured
+  // as synthetic turn-0 invocations so --show-trace surfaces them in reports.
+  const preInvocations = await runPreCommands(scenario, surface);
+
   const agentOutput = await provider.run({
     model: scenario.agent.model,
     systemPrompt: scenario.agent.system ?? DEFAULT_SYSTEM_PROMPT,
@@ -52,14 +57,17 @@ export async function runScenario(opts: RunScenarioOptions): Promise<ScenarioRes
     apiKey,
   });
 
-  const metrics = computeMetrics(agentOutput.invocations);
+  // Combine preCommand invocations with agent invocations so the trace
+  // shows the full picture (preCommands at turn 0; agent commands at turn 1+).
+  const allInvocations = [...preInvocations, ...agentOutput.invocations];
+  const metrics = computeMetrics(agentOutput.invocations); // metrics scoped to agent only — preCommands aren't agent friction
   const partialResult: ScenarioResult = {
     scenario,
     startedAt,
     finishedAt: Date.now(),
     finishReason: agentOutput.finishReason,
     turns: agentOutput.turns,
-    invocations: agentOutput.invocations,
+    invocations: allInvocations,
     assertions: [],
     metrics,
     passed: false,
@@ -107,6 +115,33 @@ async function applySetup(scenario: Scenario, bridge: AppBridge): Promise<void> 
   }
 }
 
+async function runPreCommands(
+  scenario: Scenario,
+  surface: Surface,
+): Promise<TracedInvocation[]> {
+  const preCommands = scenario.setup?.preCommands ?? [];
+  if (preCommands.length === 0) return [];
+  const invocations: TracedInvocation[] = [];
+  for (const command of preCommands) {
+    const startedAt = Date.now();
+    const result = await surface.invoke({ tool: 'bash', args: { command } });
+    invocations.push({
+      turn: 0,
+      call: { tool: 'bash', args: { command } },
+      result,
+      startedAt,
+    });
+    if (!result.ok) {
+      throw new Error(
+        `Scenario preCommand failed (exit=${result.exitCode ?? 'null'}): ${command}\n` +
+        `STDOUT: ${result.stdout?.slice(-500) ?? ''}\n` +
+        `STDERR: ${result.stderr?.slice(-500) ?? ''}`,
+      );
+    }
+  }
+  return invocations;
+}
+
 async function waitForSmoke(bridge: AppBridge, required: string[]): Promise<void> {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
@@ -129,7 +164,11 @@ function buildDefaultProvider(scenario: Scenario): AgentProvider {
 
 function buildDefaultSurface(scenario: Scenario, cwd?: string): Surface {
   if (scenario.surface === 'cli') {
-    return new CliSurface({ cwd: cwd ?? process.cwd() });
+    const opts: { cwd: string; timeoutMs?: number } = { cwd: cwd ?? process.cwd() };
+    if (scenario.agent.commandTimeoutMs !== undefined) {
+      opts.timeoutMs = scenario.agent.commandTimeoutMs;
+    }
+    return new CliSurface(opts);
   }
   throw new Error(
     `Surface "${scenario.surface}" requires an explicit Surface instance until phase 2 (mcp) lands.`,

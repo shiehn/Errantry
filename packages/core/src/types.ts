@@ -33,6 +33,16 @@ export interface ScenarioSetup {
   bind?: { project?: string };
   appConfig?: Record<string, unknown>;
   smokeWaitFor?: string[];
+  /**
+   * Bash commands to run BEFORE the agent loop starts. Useful for
+   * scenarios that need preconditions the agent shouldn't have to
+   * discover (e.g., "mute the kick" needs a kick to exist first).
+   * Each command is run sequentially in the agent's `cwd` with the
+   * same env. A failing command aborts the scenario. Stdout/stderr
+   * of each is captured into the trace as a synthetic invocation
+   * with turn=0 so it appears in --show-trace output.
+   */
+  preCommands?: string[];
 }
 
 export interface ScenarioAgent {
@@ -40,6 +50,8 @@ export interface ScenarioAgent {
   model: string;
   maxTurns: number;
   system?: string;
+  /** Per-bash-command timeout in ms. Defaults to CliSurface's 30s. Bump for render scenarios. */
+  commandTimeoutMs?: number;
 }
 
 export interface ScenarioAssertion {

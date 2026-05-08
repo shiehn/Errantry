@@ -1,0 +1,50 @@
+name: mute-kick
+description: |
+  Vague mute ask. Multi-step: agent has to (a) discover that there's a kick
+  track, (b) find its id, (c) call `sas track mute <id>`. Mute state is
+  engine-side, so assertion is on toolCalled — both the lookup
+  (e.g., `sas inspect`, `sas scene tracks`, `sas track list`) and the mute
+  call. The fixture: blank starts empty, so the goal first requires
+  creating a kick track (or compose-scene-style).
+
+  Failure modes worth distinguishing in the trace:
+    - Agent tries `sas track mute kick` (passes name instead of id) and
+      doesn't recover — friction signal on the mute error message.
+    - Agent never realizes the project is empty and skips track creation.
+
+surface: cli
+
+setup:
+  fixture: blank
+  # Seed a kick track before the agent loop so the test focuses purely on
+  # discovering and invoking `mute`. Without this, the agent burns turns
+  # creating tracks (which has its own scenario, e.g. make/bass-and-pads).
+  preCommands:
+    # Two-step seed: create a scene, then a kicks-role track in it. Avoids
+    # `make_beat` because that triggers Surge XT plugin loading + LLM-driven
+    # preset selection, which is environmental and unrelated to this scenario.
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Kicks role=kicks
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  command_timeout_ms: 180000     # preCommand `make_beat` takes ~60-120s; agent commands are fast
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Mute the kick.
+
+assertions:
+  - toolCalled:
+      contains: "mute"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

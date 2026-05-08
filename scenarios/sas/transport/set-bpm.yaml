@@ -1,0 +1,38 @@
+name: set-tempo-128
+description: |
+  Vague tempo change. Tests whether the agent can map "speed it up" to a
+  numeric BPM, find `sas transport bpm`, and pass the value as a positional
+  argument (not a flag).
+
+  Engine state (project tempo) is the truth here. `projects.tempo` is a
+  DB-side cache that lags engine state — assertion is on `toolCalled` with
+  the literal "128" so we don't depend on the eventual DB sync.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Speed it up to 128.
+
+assertions:
+  - toolCalled:
+      contains: "128"
+  - toolCalled:
+      contains: "bpm"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

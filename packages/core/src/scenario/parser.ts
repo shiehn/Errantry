@@ -24,6 +24,7 @@ const ScenarioSchema = z.object({
       bind: z.object({ project: z.string().optional() }).optional(),
       appConfig: z.record(z.string(), z.unknown()).optional(),
       smokeWaitFor: z.array(z.string()).optional(),
+      preCommands: z.array(z.string()).optional(),
     })
     .optional(),
   agent: z.object({
@@ -31,6 +32,7 @@ const ScenarioSchema = z.object({
     model: z.string().default('gpt-4o-mini'),
     max_turns: z.number().int().positive().default(12),
     system: z.string().optional(),
+    command_timeout_ms: z.number().int().positive().optional(),
   }),
   goal: z.string().min(1),
   assertions: z.array(AssertionEntrySchema).min(1),
@@ -77,12 +79,14 @@ export function parseScenario(input: unknown): Scenario {
   };
   if (parsed.description !== undefined) scenario.description = parsed.description;
   if (parsed.agent.system !== undefined) scenario.agent.system = parsed.agent.system;
+  if (parsed.agent.command_timeout_ms !== undefined) scenario.agent.commandTimeoutMs = parsed.agent.command_timeout_ms;
   if (parsed.setup) {
     scenario.setup = {
       ...(parsed.setup.fixture !== undefined && { fixture: parsed.setup.fixture }),
       ...(parsed.setup.bind && { bind: parsed.setup.bind }),
       ...(parsed.setup.appConfig && { appConfig: parsed.setup.appConfig }),
       ...(parsed.setup.smokeWaitFor && { smokeWaitFor: parsed.setup.smokeWaitFor }),
+      ...(parsed.setup.preCommands && { preCommands: parsed.setup.preCommands }),
     };
   }
   if (parsed.metrics) {

@@ -1,0 +1,70 @@
+name: make-beat-bass-and-pads
+description: |
+  Marquee scenario. Vague natural-language ask: "make me a beat with bass and pads".
+  Tests whether the agent can:
+    1. Discover that `sas make beat` exists (and that it accepts --roles).
+    2. Map "bass and pads" → the canonical role tokens (bass, pads).
+    3. Apply the plan (default behavior — no --plan-only flag) so DB rows actually land.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent guesses `--roles bass-and-pads` (wrong delimiter) → blame `sas make beat --help` for not listing valid role values.
+    - Agent skips `make beat` and goes scene-by-scene-then-track creation → blame top-level `sas --help` for not surfacing composites.
+    - Agent uses --plan-only and stops there → blame the help text or system prompt for not making "apply" the default.
+
+surface: cli
+
+setup:
+  fixture: blank          # programmatic empty project — no .sasproj file needed
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+  command_timeout_ms: 180000    # `sas make beat` runs LLM composition per track; 60s is too tight, observed completion at 90–120s
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Make me a beat with bass and pads.
+
+assertions:
+  # At least one track with role='bass' on the most-recently-bound errantry blank fixture.
+  - dbQuery:
+      sql: |
+        SELECT id FROM tracks
+        WHERE role = ?
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      args: ["bass"]
+      toHaveAtLeast: 1
+  # At least one track with role='pads'.
+  - dbQuery:
+      sql: |
+        SELECT id FROM tracks
+        WHERE role = ?
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      args: ["pads"]
+      toHaveAtLeast: 1
+  # NOTE: We intentionally do NOT assert on `toolCalled` for the make composite.
+  # A manual decomposition (scene_create + dsl_track_create + dsl_generate_midi,
+  # OR `sas generate track --role bass` per role) is an equally valid path —
+  # the goal is the DB state, not the specific command. If the composite WOULD
+  # be cleaner, that's a separate question for the help-text iteration loop:
+  # if friction is high on this scenario, that's the signal that the composite
+  # should have been more discoverable.
+  - budget:
+      turns: 12              # vague-prompt scenarios may take more turns to learn the surface
+      errors: 10             # required-option discovery costs errors but recovers cleanly
+      frictionScore: 0.5

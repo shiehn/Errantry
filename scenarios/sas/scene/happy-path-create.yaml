@@ -7,19 +7,25 @@ description: |
 surface: cli
 
 setup:
-  fixture: blank-project
+  fixture: blank          # programmatic empty project — no .sasproj file needed
 
 agent:
   provider: openai
   model: gpt-4o-mini
   max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
 
 goal: |
   Create a new scene called "Verse" in the currently-bound project.
 
 assertions:
   - dbQuery:
-      sql: "SELECT name FROM scenes WHERE name = ?"
+      sql: "SELECT name FROM loop_sections WHERE name = ?"
       args: ["Verse"]
       toHaveAtLeast: 1
   - toolCalled:

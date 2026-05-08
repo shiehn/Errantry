@@ -1,7 +1,15 @@
 import type { ScenarioResult } from '@errantry/core';
 import kleur from 'kleur';
 
-export function renderMarkdown(result: ScenarioResult): string {
+interface RenderOptions {
+  /** Dump stdout/stderr for every invocation, not just failures. */
+  showTrace?: boolean;
+  /** Max lines of stdout/stderr to print per invocation. */
+  ioLineLimit?: number;
+}
+
+export function renderMarkdown(result: ScenarioResult, options: RenderOptions = {}): string {
+  const { showTrace = false, ioLineLimit = 30 } = options;
   const lines: string[] = [];
   const status = result.passed ? kleur.green('PASS') : kleur.red('FAIL');
   const durationMs = result.finishedAt - result.startedAt;
@@ -48,8 +56,33 @@ export function renderMarkdown(result: ScenarioResult): string {
       lines.push(
         `- t${inv.turn} ${tag} \`${truncated}\` (exit=${inv.result.exitCode ?? 'null'}, ${inv.result.durationMs}ms)`,
       );
+      const shouldDumpIO = showTrace || !inv.result.ok;
+      if (shouldDumpIO) {
+        const stdoutSnippet = tailSnippet(inv.result.stdout, ioLineLimit);
+        const stderrSnippet = tailSnippet(inv.result.stderr, ioLineLimit);
+        if (stdoutSnippet) {
+          lines.push('  ```stdout', stdoutSnippet, '  ```');
+        }
+        if (stderrSnippet) {
+          lines.push('  ```stderr', stderrSnippet, '  ```');
+        }
+        if (!stdoutSnippet && !stderrSnippet) {
+          lines.push('  ' + kleur.gray('(no stdout / stderr captured)'));
+        }
+      }
     }
   }
 
   return lines.join('\n');
+}
+
+function tailSnippet(text: string | undefined, lineLimit: number): string {
+  if (!text) return '';
+  const trimmed = text.replace(/\s+$/, '');
+  if (!trimmed) return '';
+  const allLines = trimmed.split(/\r?\n/);
+  const tail = allLines.slice(-lineLimit);
+  const omitted = allLines.length - tail.length;
+  const prefix = omitted > 0 ? [`  … (${omitted} earlier lines omitted)`] : [];
+  return [...prefix, ...tail.map((l) => '  ' + l)].join('\n');
 }

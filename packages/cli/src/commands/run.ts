@@ -16,6 +16,7 @@ interface RunOpts {
   bridge?: string;
   json?: boolean;
   mock?: string;
+  showTrace?: boolean;
 }
 
 export async function runCommand(scenarioPath: string, opts: RunOpts): Promise<void> {
@@ -49,7 +50,7 @@ export async function runCommand(scenarioPath: string, opts: RunOpts): Promise<v
   if (opts.json) {
     console.log(JSON.stringify(serializeResult(result), null, 2));
   } else {
-    console.log(renderMarkdown(result));
+    console.log(renderMarkdown(result, { showTrace: opts.showTrace ?? false }));
   }
 
   process.exit(result.passed ? 0 : 1);
@@ -81,6 +82,8 @@ function serializeResult(result: ScenarioResult): unknown {
       ok: i.result.ok,
       exitCode: i.result.exitCode,
       durationMs: i.result.durationMs,
+      stdout: i.result.stdout,
+      stderr: i.result.stderr,
     })),
     durationMs: result.finishedAt - result.startedAt,
   };
