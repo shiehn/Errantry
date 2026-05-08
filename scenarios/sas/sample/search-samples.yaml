@@ -1,0 +1,46 @@
+name: search-lofi-drums
+description: |
+  Vague library-search ask. Read-only. `search_samples` accepts text
+  query, bpm, key, category, or limit — any subset works; nothing is
+  required.
+
+  Note: the sample library on a fresh blank fixture may be empty. The
+  test scores on the right *call* being made, not on result count — an
+  empty result set is acceptable as long as the agent invoked the search
+  surface.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes "lo-fi drums" as the entire query and gets 0 results,
+      then doesn't try refining (e.g., category=drums) → friction on
+      whether the help text suggests structured filters.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Find me some lo-fi drum samples.
+
+metadata:
+  exercises:
+    - search_samples
+
+assertions:
+  - toolCalled:
+      matches: "(sample|search)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

@@ -1,0 +1,47 @@
+name: add-reverb-to-bass
+description: |
+  Vague FX-add ask. Tests three things at once: (a) name resolver on
+  `track`, (b) enum constraint on `category` ({eq, compressor, chorus,
+  phaser, delay, reverb}), (c) required `enabled` boolean.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes `category=Reverb` (capitalized) → friction on whether
+      the enum-mismatch error lists allowed values in lowercase.
+    - Agent calls `dsl_set_track_fx track=bass category=reverb` without
+      `enabled=true` → friction on the missing-required error.
+    - Agent guesses category="space" (a non-canonical synonym for reverb)
+      → friction on the enum mismatch error.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Add some reverb to the bass.
+
+metadata:
+  exercises:
+    - dsl_set_track_fx
+
+assertions:
+  - toolCalled:
+      contains: "reverb"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

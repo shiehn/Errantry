@@ -1,0 +1,57 @@
+name: move-bass-to-chorus
+description: |
+  Vague track-relocation ask. Multi-step: the agent must (a) discover
+  both the bass track id and the chorus scene id, (b) call
+  `scene_move_track` with both. We seed the bass into Verse (the
+  first-active scene); after move, the bass should be in Chorus.
+
+  Note: `dsl_track_create` lands in the active scene. After two
+  `sas scene create` calls, the most-recently-created scene becomes
+  active — so create Chorus first, switch back to Verse, then create
+  the bass. Otherwise the bass starts in Chorus and the move is a no-op.
+  Easier: call `scene_activate` between the create calls.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent uses `scene_add_track` (which moves a track INTO a scene
+      but doesn't necessarily remove it from the source) instead of
+      `scene_move_track` — different semantics. Friction signal on
+      whether the help text disambiguates the two.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Chorus --json
+    - sas scene create Verse --json
+    # Verse is active now; the bass lands here.
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Move the bass into the chorus.
+
+metadata:
+  exercises:
+    - scene_move_track
+
+assertions:
+  # Either move_track or add_track is acceptable — both produce the
+  # right outcome from the user's POV. Friction signal will tell us
+  # which the agent reaches for.
+  - toolCalled:
+      matches: "(move_track|add_track)"
+  - budget:
+      turns: 12
+      errors: 6
+      frictionScore: 0.5

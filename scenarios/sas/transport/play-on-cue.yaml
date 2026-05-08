@@ -1,0 +1,48 @@
+name: play-verse-on-cue
+description: |
+  Vague monitor-this ask. `play_scene` is distinct from `dsl_play`:
+    - `dsl_play` plays the active scene on the project transport
+    - `play_scene` plays a NAMED scene on the cue deck (loop-a /
+      headphones), with optional `deck=main` to route to the perf deck
+
+  The named-scene + named-deck flexibility is the test. Goal phrasing
+  ("preview", "monitor", "headphone") signals cue intent.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent uses `dsl_play` and gets the active scene playing globally
+      → wrong deck routing. Friction signal on whether help differentiates
+      project-transport play vs. deck-aware play.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Cue up the verse for monitoring.
+
+metadata:
+  exercises:
+    - play_scene
+
+assertions:
+  - toolCalled:
+      matches: "(play_scene|play|deck)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

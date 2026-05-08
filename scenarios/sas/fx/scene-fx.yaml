@@ -1,0 +1,47 @@
+name: scene-wide-reverb
+description: |
+  Vague "apply X to everything" ask. `set_scene_fx` is the active-scene
+  composite of `dsl_set_track_fx` — applies one category to every track
+  in the active scene at once. Sibling distinction worth testing: agent
+  could iterate per-track via `dsl_set_track_fx` (workable but verbose) or
+  use the scene-level surface (one call).
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls `dsl_set_track_fx` per-track in a loop instead of
+      `set_scene_fx` once → friction signal on whether the scene-level
+      alternative is discoverable.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Kicks role=kicks
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Add reverb to everything in this scene.
+
+metadata:
+  exercises:
+    - set_scene_fx
+
+assertions:
+  - toolCalled:
+      contains: "reverb"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

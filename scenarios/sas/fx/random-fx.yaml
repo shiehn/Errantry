@@ -1,0 +1,48 @@
+name: spice-up-bass-with-random-fx
+description: |
+  Vague creative-FX ask. `rack_apply_random_fx` rolls a random preset for
+  every one of the 5 effect slots on a track. Both `trackGuid` and
+  `trackIndex` are optional — but at least one is needed for the call to
+  identify the target.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls the action with no track identifier and the schema
+      (no required field) lets the call through, but the action errors
+      → friction on whether the action description explains "exactly
+      one of trackGuid/trackIndex" semantics.
+    - Agent passes track *name* "bass" instead of guid/index → friction
+      on whether the error message suggests the alternative selectors.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Spice up the bass with some random fx.
+
+metadata:
+  exercises:
+    - rack_apply_random_fx
+
+assertions:
+  - toolCalled:
+      matches: "(random_fx|random|fx)"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5
