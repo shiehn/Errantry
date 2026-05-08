@@ -32,6 +32,13 @@ agent:
 goal: |
   Make me a beat with bass and pads.
 
+metadata:
+  exercises:
+    - make_beat
+    - compose_scene
+    - dsl_track_create
+    - dsl_generate_midi
+
 assertions:
   # At least one track with role='bass' on the most-recently-bound errantry blank fixture.
   - dbQuery:

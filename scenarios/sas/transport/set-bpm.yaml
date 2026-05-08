@@ -27,6 +27,10 @@ agent:
 goal: |
   Speed it up to 128.
 
+metadata:
+  exercises:
+    - dsl_set_tempo
+
 assertions:
   - toolCalled:
       contains: "128"

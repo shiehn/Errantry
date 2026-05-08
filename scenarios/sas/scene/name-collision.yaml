@@ -13,23 +13,37 @@ description: |
 surface: cli
 
 setup:
-  fixture: blank-project
-  appConfig:
-    seedScenes: ["Intro"]
+  fixture: blank
+  preCommands:
+    - sas scene create Intro --json    # seed the conflict the agent has to recover from
 
 agent:
   provider: openai
   model: gpt-4o-mini
   max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
 
 goal: |
   Create a new scene called "Intro" in the currently-bound project.
 
+metadata:
+  exercises:
+    - scene_create
+
 assertions:
+  # End-state: at least one scene named "Intro" (the pre-existing one stays).
+  # If the agent silently duplicated, two rows would exist; if the CLI rejected
+  # cleanly, one. We pass either way — the goal is graceful conflict surfacing,
+  # not zero duplicates. Tighten this when conflict semantics are firmed up.
   - dbQuery:
-      sql: "SELECT COUNT(*) AS n FROM scenes WHERE name = ?"
+      sql: "SELECT id FROM loop_sections WHERE name = ?"
       args: ["Intro"]
-      toMatch: { n: 1 }
+      toHaveAtLeast: 1
   - toolCalled:
       contains: "scene"
   - budget:

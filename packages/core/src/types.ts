@@ -26,6 +26,13 @@ export interface Scenario {
   goal: string;
   assertions: ScenarioAssertion[];
   metrics?: ScenarioMetrics;
+  /**
+   * Free-form metadata. Currently consumed only by tooling (coverage
+   * reports, dashboards). The runner ignores this block. Convention:
+   *   metadata.exercises: string[]   — registered action names this
+   *                                     scenario is intended to cover.
+   */
+  metadata?: Record<string, unknown>;
 }
 
 export interface ScenarioSetup {

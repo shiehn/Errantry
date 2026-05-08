@@ -47,6 +47,8 @@ const ScenarioSchema = z.object({
         .optional(),
     })
     .optional(),
+  // Free-form metadata. Tooling reads this; runner ignores it.
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 type ParsedScenarioRaw = z.infer<typeof ScenarioSchema>;
@@ -91,6 +93,9 @@ export function parseScenario(input: unknown): Scenario {
   }
   if (parsed.metrics) {
     scenario.metrics = parsed.metrics;
+  }
+  if (parsed.metadata) {
+    scenario.metadata = parsed.metadata;
   }
   return scenario;
 }

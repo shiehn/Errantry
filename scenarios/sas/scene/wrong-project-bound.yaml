@@ -13,25 +13,37 @@ description: |
 surface: cli
 
 setup:
-  # Note: no `bind` block — the project is intentionally unbound at start.
-  fixture: blank-project
+  fixture: blank
+  # NOTE: ideally this scenario would START with no project bound, but the
+  # `fixture: blank` flow always mounts one. Until Errantry exposes an
+  # "unbind first" hook (or a `fixture: none` mode), this test instead
+  # verifies the agent's project-state discovery reflex even when binding
+  # is already healthy. Treat it as scene-create-with-project-discovery.
 
 agent:
   provider: openai
   model: gpt-4o-mini
   max_turns: 14
+  system: |
+    You are testing a CLI named `sas`. The binary is on PATH. Use --help,
+    list-actions, and error messages to recover. Run one bash command per
+    tool call. When the goal is satisfied, respond without calling a tool.
 
 goal: |
   Create a scene called "Bridge". The session may not have a project bound yet —
   if so, take whatever steps the CLI suggests to get a working project.
 
+metadata:
+  exercises:
+    - project_get_status
+    - scene_create
+
 assertions:
   - dbQuery:
-      sql: "SELECT name FROM scenes WHERE name = ?"
+      sql: "SELECT name FROM loop_sections WHERE name = ?"
       args: ["Bridge"]
       toHaveAtLeast: 1
   - toolCalled:
       contains: "project"
-  - errorRecovered: null
   - budget:
       turns: 12

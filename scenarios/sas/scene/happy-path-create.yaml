@@ -23,6 +23,10 @@ agent:
 goal: |
   Create a new scene called "Verse" in the currently-bound project.
 
+metadata:
+  exercises:
+    - scene_create
+
 assertions:
   - dbQuery:
       sql: "SELECT name FROM loop_sections WHERE name = ?"

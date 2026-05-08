@@ -41,6 +41,10 @@ agent:
 goal: |
   Mute the kick.
 
+metadata:
+  exercises:
+    - dsl_track_mute
+
 assertions:
   - toolCalled:
       contains: "mute"

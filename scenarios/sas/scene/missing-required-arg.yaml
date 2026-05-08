@@ -12,21 +12,31 @@ description: |
 surface: cli
 
 setup:
-  fixture: blank-project
+  fixture: blank
 
 agent:
   provider: openai
   model: gpt-4o-mini
   max_turns: 12
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
 
 goal: |
   Create a new scene. The user did not specify a name — pick a sensible default
   like "Untitled Scene" if the CLI requires one.
 
+metadata:
+  exercises:
+    - scene_create
+
 assertions:
   - dbQuery:
-      sql: "SELECT COUNT(*) AS n FROM scenes"
-      toMatch: { n: 1 }
+      sql: "SELECT id FROM loop_sections"
+      toHaveAtLeast: 2          # blank fixture seeds one scene; agent must add a second
   - toolCalled:
       contains: "scene"
   - budget:

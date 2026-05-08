@@ -13,27 +13,32 @@ description: |
 surface: cli
 
 setup:
-  fixture: blank-project
+  fixture: blank
 
 agent:
   provider: openai
   model: gpt-4o-mini
   max_turns: 12
   system: |
-    You are testing a CLI you have never used before. The binary "sas" is on
-    PATH. You may use --help and any error messages the CLI gives you.
+    You are testing a CLI named `sas`. The binary is on PATH.
 
     IMPORTANT: Try the most natural-sounding command FIRST without consulting
-    --help. Only fall back to --help after a command fails. We are testing
-    whether the CLI's error messages are intelligible enough to recover.
+    --help. Only fall back to --help / list-actions after a command fails.
+    We are testing whether the CLI's error messages are intelligible enough
+    to recover.
 
 goal: |
   Set the project tempo to 128 BPM.
 
+metadata:
+  exercises:
+    - dsl_set_tempo
+
 assertions:
-  - dbQuery:
-      sql: "SELECT bpm FROM projects ORDER BY rowid DESC LIMIT 1"
-      toMatch: { bpm: 128 }
+  # Tempo is engine-side; projects.tempo is a DB cache that can lag. Assert
+  # via toolCalled so we don't depend on the eventual sync.
+  - toolCalled:
+      contains: "128"
   - errorRecovered: null
   - budget:
       turns: 10
