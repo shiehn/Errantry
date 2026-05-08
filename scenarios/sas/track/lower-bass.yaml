@@ -1,0 +1,55 @@
+name: lower-bass-volume
+description: |
+  Vague mix ask. Multi-step: agent must (a) discover the bass track's id
+  via inspect/list, (b) decide on a quieter-than-default fader value, and
+  (c) call `sas track volume <id> <value>` (or `sas run dsl_track_volume`).
+  The fader is linear 0..1 — "quieter" is interpreted by the agent; we
+  don't care about the exact value, only that volume was set on the bass
+  track.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes the track *name* instead of id and the error doesn't
+      teach it to look up the id → friction on `dsl_track_volume`
+      error message.
+    - Agent guesses a dB value (e.g., -6) instead of a 0..1 fader
+      position → friction on `--help` documentation of the value range.
+    - Agent skips the discovery step entirely and invents a UUID →
+      friction on top-level discoverability of `sas inspect`.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    # Seed a bass track so the scenario tests volume invocation, not creation.
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Make the bass quieter.
+
+metadata:
+  exercises:
+    - dsl_track_volume
+
+assertions:
+  # The agent's volume call must reference the bass track somehow — either
+  # by passing the resolved id (via the discovery step) or, when going
+  # through `sas track volume`, by including a value < 1.0.
+  - toolCalled:
+      contains: "volume"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

@@ -1,0 +1,50 @@
+name: list-scenes
+description: |
+  Vague discovery ask. Read-only — no state mutation. Multiple valid paths:
+  `sas scene list`, `sas inspect project`, `sas run scene_get_all`. Any of
+  them satisfies the goal.
+
+  The action description for `scene_get_all` notes it excludes the internal
+  POOL scene used for track pooling — agent doesn't need to know that, but
+  if they're surprised by the count we'd see it in the trace.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas scenes` (plural top-level) → friction on
+      top-level help.
+    - Agent invents `--all` or `--include-pool` → friction on subcommand
+      help.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Chorus --json
+    - sas scene create Bridge --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What scenes do I have?
+
+metadata:
+  exercises:
+    - scene_get_all
+
+assertions:
+  - toolCalled:
+      contains: "scene"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

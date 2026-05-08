@@ -1,0 +1,44 @@
+name: stop-transport
+description: |
+  Vague stop ask. `dsl_stop` is idempotent — works whether transport is
+  playing or already stopped — so we don't need to pre-seed playback. The
+  test focuses purely on whether the agent can find the right command
+  from natural-language phrasing ("hold on", "halt", etc. are listed in
+  the action description).
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas pause` (which doesn't exist) and doesn't
+      recover → friction on top-level help.
+    - Agent invents flags like `--all` or `--scene` → friction on
+      `sas transport stop --help`.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Stop.
+
+metadata:
+  exercises:
+    - dsl_stop
+
+assertions:
+  - toolCalled:
+      contains: "stop"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

@@ -1,0 +1,57 @@
+name: switch-to-chorus
+description: |
+  Vague navigation ask. Agent must (a) list scenes to find the chorus's id,
+  (b) call `sas run scene_activate sceneId=<id>` (or whichever surface form
+  is exposed). Tests the discover-then-act pattern that comes up throughout
+  the CLI: any action requiring a UUID-shaped param needs an upstream
+  list/inspect call first.
+
+  We seed three scenes so the agent has to actually pick "Chorus" by name —
+  not just trip over the only scene that exists.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes the scene *name* "Chorus" as sceneId and the error
+      doesn't say "use `sas scene list` to find the id" → friction on
+      `scene_activate` error message.
+    - Agent skips discovery and guesses a UUID → friction on top-level
+      discoverability.
+
+  Asserts via toolCalled — not via DB — because the user-visible "active
+  scene" mostly lives in engine state (mute on all-but-one scene). The DB
+  has a `projects.active_scene_id` cache but it lags engine state.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Chorus --json
+    - sas scene create Bridge --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Go to the chorus.
+
+metadata:
+  exercises:
+    - scene_activate
+    - scene_get_all
+
+assertions:
+  - toolCalled:
+      contains: "activate"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

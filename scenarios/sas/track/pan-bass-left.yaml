@@ -1,0 +1,46 @@
+name: pan-bass-left
+description: |
+  Vague pan ask. Mirror of lower-bass: agent must look up the bass track id,
+  then call `dsl_track_pan` with a negative value. Pan range is -1..+1 with
+  0 = center; "to the left" is any negative value. Tests whether the agent
+  can map directional language to a signed scalar.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes "left" as a string → friction on the pan param schema.
+    - Agent passes 0..1 (volume range) instead of -1..+1 → friction on
+      `--help` documentation of the pan value range.
+    - Agent passes percentages or angles → friction on the same.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Pan the bass to the left.
+
+metadata:
+  exercises:
+    - dsl_track_pan
+
+assertions:
+  - toolCalled:
+      contains: "pan"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

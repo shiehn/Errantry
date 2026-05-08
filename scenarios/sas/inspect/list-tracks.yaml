@@ -1,0 +1,51 @@
+name: list-tracks
+description: |
+  Vague discovery ask. Read-only — no state mutation. Agent must find a
+  way to list tracks across the project. Multiple valid paths:
+  `sas track list`, `sas inspect project`, `sas run dsl_list_tracks`,
+  `sas list-actions | grep track`, etc. Any of them satisfies the goal.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas tracks` (plural) or `sas list tracks`
+      (wrong order) → friction on top-level help.
+    - Agent invents a `--filter` or `--scene` flag and gets confusing
+      output → friction on the relevant subcommand's `--help`.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    # Seed a couple of tracks so the listing has content to return.
+    # If the agent's path returns "no tracks" on an empty project, we
+    # can't tell apart "agent picked a wrong command" from "agent picked
+    # the right command but project is empty".
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Kicks role=kicks
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What tracks are in this project?
+
+metadata:
+  exercises:
+    - dsl_list_tracks
+
+assertions:
+  - toolCalled:
+      contains: "track"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5
