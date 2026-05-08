@@ -1,0 +1,56 @@
+name: delete-transition
+description: |
+  Vague destructive ask on a transition. The agent must (a) discover
+  the transitions table (via `sas inspect project`, `sas list-actions`,
+  or a transition-specific subcommand), (b) find the transitionId,
+  (c) call `delete_transition`. Required: `transitionId`.
+
+  We do NOT seed a real transition (LLM-heavy, slow). The friction
+  signal we want is "what does the agent do when there's nothing to
+  delete?" — does the empty-list error suggest creating one first, or
+  does the agent loop trying to invent UUIDs?
+
+  Failure modes worth distinguishing in the trace:
+    - Agent guesses a UUID and the not-found error gives no hint →
+      friction signal.
+    - Agent reports "no transitions exist, nothing to delete" without
+      ever calling the action → reasonable; toolCalled won't match,
+      so this scenario will be flagged for friction-loop investigation.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Chorus --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Delete the transition between verse and chorus.
+
+metadata:
+  exercises:
+    - delete_transition
+
+assertions:
+  # Tolerant assertion — the agent may correctly conclude there's
+  # nothing to delete without calling the action. Both outcomes are
+  # informative; we just want the action surface attempted or
+  # proactively reasoned about.
+  - toolCalled:
+      matches: "(delete_transition|transition|delete)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

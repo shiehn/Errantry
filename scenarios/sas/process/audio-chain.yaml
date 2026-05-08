@@ -1,0 +1,48 @@
+name: process-audio-with-chain
+description: |
+  Vague "clean this audio up" ask with structured params. `process_audio`
+  takes an `inputPath` (absolute) and an `operations` array of typed
+  ops (normalize, compress, eq, reverb, etc.). Tests whether the agent
+  can construct the JSON-array param correctly.
+
+  We don't seed a real WAV — the test scores on the surface being called
+  with sensible structure, not on the audio actually processing.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes operations as a string list (`operations=normalize,reverb`)
+      instead of an array of objects → friction on whether the schema
+      validation error mentions the object-shape requirement.
+    - Agent guesses tool names not in the enum → friction on whether
+      the enum-mismatch error lists allowed values.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  command_timeout_ms: 60000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Normalize and add some reverb to the WAV at /tmp/sample.wav.
+
+metadata:
+  exercises:
+    - process_audio
+
+assertions:
+  - toolCalled:
+      matches: "(process_audio|process|normalize|reverb)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

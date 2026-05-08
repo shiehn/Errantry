@@ -1,0 +1,50 @@
+name: import-sample-from-path
+description: |
+  Vague library-import ask. `import_samples` takes an array of absolute
+  paths (files OR directories). Tests whether the agent can construct
+  the array param correctly via the `paths=[...]` JSON syntax (recently
+  added — see `sas-cli/src/commands/actions.ts` for the parseParamFlags
+  JSON branch).
+
+  We don't seed a real audio file — the agent's call to `import_samples`
+  is the friction signal we care about. Library state assertions would
+  require a known-good seed file; deferred.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent passes a single string instead of an array (`paths=/tmp/x.wav`)
+      → friction on whether the schema-validation error mentions the
+      array form.
+    - Agent passes a relative path → friction on whether the abs-path
+      requirement is in `--help`.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  command_timeout_ms: 60000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Import the audio file at /tmp/example.wav into the sample library.
+
+metadata:
+  exercises:
+    - import_samples
+
+assertions:
+  - toolCalled:
+      matches: "(import|sample)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

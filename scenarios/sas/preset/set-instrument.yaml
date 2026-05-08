@@ -1,0 +1,50 @@
+name: set-instrument-preset
+description: |
+  Vague "swap to this sound" ask. `rack_set_instrument` loads a specific
+  preset onto a track. Requires `presetPath` (Surge XT preset path or
+  .RfxChain). Either `trackGuid` or `trackIndex` identifies the target
+  (both are optional in the schema but at least one is needed).
+
+  Tests whether the agent (a) finds the surface and (b) figures out a
+  valid preset path. Multi-step — likely needs to chain
+  `dsl_get_preset_categories` first.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent invents a path or guesses → friction on whether help text
+      links to discovery actions.
+    - Agent passes a track *name* — neither trackGuid nor trackIndex
+      accepts names → friction on the param description.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Swap the bass over to a different synth preset.
+
+metadata:
+  exercises:
+    - rack_set_instrument
+
+assertions:
+  - toolCalled:
+      matches: "(rack_set_instrument|preset|instrument)"
+  - budget:
+      turns: 12
+      errors: 6
+      frictionScore: 0.5

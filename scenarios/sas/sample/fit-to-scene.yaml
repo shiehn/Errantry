@@ -1,0 +1,46 @@
+name: fit-sample-to-verse
+description: |
+  Vague "drop this sample in" ask. `fit_sample_to_scene` time-stretches a
+  library sample to the project BPM and chops it to the scene length.
+  Required: `sceneId`. Either `sampleId` or `sampleName` resolves the
+  source. The library may be empty in fresh blank fixture; the test
+  scores on the right surface being called.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent skips the search step and guesses a sampleName that doesn't
+      resolve → friction on whether the not-found error suggests
+      `search_samples` first.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  command_timeout_ms: 60000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Drop a vinyl crackle sample into the verse.
+
+metadata:
+  exercises:
+    - fit_sample_to_scene
+
+assertions:
+  - toolCalled:
+      matches: "(fit_sample|fit|sample)"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

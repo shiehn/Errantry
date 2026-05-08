@@ -1,0 +1,45 @@
+name: add-sample-as-track
+description: |
+  Vague "use this sample as a track" ask. `add_sample_track` creates a
+  track in the active scene that points at a library sample. Requires
+  either `sampleId` or `sampleName`. Distinct from `fit_sample_to_scene`
+  (which fits AND adds) — `add_sample_track` is just the add step.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent uses `fit_sample_to_scene` thinking it's the same thing —
+      friction signal on whether the two surfaces are clearly
+      differentiated.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  command_timeout_ms: 60000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Add a kick sample from the library as a track in this scene.
+
+metadata:
+  exercises:
+    - add_sample_track
+
+assertions:
+  - toolCalled:
+      matches: "(add_sample_track|sample)"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5
