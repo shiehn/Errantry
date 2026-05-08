@@ -1,0 +1,58 @@
+name: build-plan-only
+description: |
+  Vague "describe but don't run" ask. The plan-as-artifact surface is meant
+  to let agents preview before mutating. `sas_create_plan` is read-only —
+  it constructs a typed Plan and emits it as JSON. The CLI surface is
+  `sas plan <intent>` with `--plan-out` to write the file.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent runs `sas make beat` (mutating composite) when asked NOT to
+      mutate → friction signal on whether plan vs. apply phrasing is
+      teachable from `sas --help`.
+    - Agent uses `--plan-only` (a flag from one of the make composites)
+      and stops there → reasonable but indirect; friction on whether
+      `sas plan` is more discoverable for the "describe-only" intent.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  command_timeout_ms: 120000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Plan how to add a pad track — but don't actually run it yet.
+
+metadata:
+  exercises:
+    - sas_create_plan
+
+assertions:
+  - toolCalled:
+      contains: "plan"
+  # No new tracks should have landed — this is a read-only preview.
+  - dbQuery:
+      sql: |
+        SELECT id FROM tracks
+        WHERE project_id = (
+          SELECT id FROM projects
+          WHERE name LIKE 'errantry-blank-%'
+          ORDER BY rowid DESC LIMIT 1
+        )
+      toHaveRows: 0
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

@@ -1,0 +1,59 @@
+name: validate-plan
+description: |
+  Multi-step planning workflow. Tests whether the agent (a) builds a plan
+  via `sas plan`, (b) feeds it to `sas validate` (positional plan-file or
+  stdin via `-`). Two-action chain — exercises sas_create_plan AND
+  sas_validate_plan. Validate is the one we're scoring for coverage; plan
+  is scaffolding.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent builds a plan but never validates → friction on whether the
+      help text mentions the build → validate → apply pipeline.
+    - Agent tries to validate without first building a plan → friction
+      on the missing-plan-file error message.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 12
+  command_timeout_ms: 120000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Build a plan to add a pad track, then check if the plan is valid against
+  the current project state — but don't run it.
+
+metadata:
+  exercises:
+    - sas_create_plan
+    - sas_validate_plan
+
+assertions:
+  - toolCalled:
+      contains: "validate"
+  # Still no tracks — this is preview-only.
+  - dbQuery:
+      sql: |
+        SELECT id FROM tracks
+        WHERE project_id = (
+          SELECT id FROM projects
+          WHERE name LIKE 'errantry-blank-%'
+          ORDER BY rowid DESC LIMIT 1
+        )
+      toHaveRows: 0
+  - budget:
+      turns: 12
+      errors: 6
+      frictionScore: 0.5

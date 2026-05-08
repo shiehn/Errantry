@@ -1,0 +1,43 @@
+name: list-preset-categories
+description: |
+  Vague "what's available?" ask about FX presets. Read-only — lists the
+  preset-map directories that `rack_apply_random_fx` can pull from.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent runs `sas list-actions` and reports the action list (wrong
+      level — they asked for preset categories, not actions) → friction
+      on whether the action-name "dsl_get_preset_categories" is
+      discoverable.
+    - Agent invents `sas presets list` (subcommand path that doesn't
+      exist) and doesn't pivot → friction on top-level help.
+
+surface: cli
+
+setup:
+  fixture: blank
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What FX preset categories are available?
+
+metadata:
+  exercises:
+    - dsl_get_preset_categories
+
+assertions:
+  - toolCalled:
+      matches: "(preset|categor)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

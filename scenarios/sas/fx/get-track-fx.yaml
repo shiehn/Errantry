@@ -1,0 +1,47 @@
+name: get-track-fx
+description: |
+  Vague FX-introspection ask. Read-only. `dsl_get_track_fx` returns the
+  current FX state for a track (which categories enabled, preset 1-5,
+  dry/wet). Accepts name OR id for `track`.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent doesn't realize FX state lives per-track and asks at the
+      project or scene level → friction on whether help text scopes
+      FX state correctly.
+    - Agent calls `sas inspect track bass` and parses the FX summary out
+      of that output → workable indirect path; friction on whether
+      `dsl_get_track_fx` is more discoverable for the narrow ask.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  What FX is on the bass?
+
+metadata:
+  exercises:
+    - dsl_get_track_fx
+
+assertions:
+  - toolCalled:
+      matches: "(fx|track)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

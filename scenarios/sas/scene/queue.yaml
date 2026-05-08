@@ -1,0 +1,46 @@
+name: queue-chorus
+description: |
+  Vague "play X next" ask. `scene_queue` schedules a scene switch for the
+  next bar boundary — currently routes to scene_activate (immediate) but
+  is the canonical "queue at boundary" surface. Sibling of scene_activate.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls `scene_activate` instead and the user-visible behavior
+      is the same — fine for now, but the action-name "queue" exists
+      specifically for this intent. Friction signal on whether help text
+      surfaces the distinction.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas scene create Chorus --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 8
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Cue up the chorus for the next bar.
+
+metadata:
+  exercises:
+    - scene_queue
+
+assertions:
+  # Either scene_queue (preferred) or scene_activate (acceptable fallback).
+  - toolCalled:
+      matches: "(queue|activate)"
+  - budget:
+      turns: 8
+      errors: 4
+      frictionScore: 0.5

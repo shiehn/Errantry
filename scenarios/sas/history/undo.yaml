@@ -1,0 +1,70 @@
+name: undo-to-baseline
+description: |
+  Vague restore ask. Multi-step: the agent must (a) discover the
+  checkpoint surface, (b) look up the saved checkpoint name, (c) call
+  `sas history undo <name>`. We seed `baseline` BEFORE creating a Bridge
+  scene, so an undo back to baseline should remove the Bridge — that's
+  the DB assertion.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent runs `sas history undo` with no name → friction on whether
+      the missing-name error tells them to run `sas history list` first.
+    - Agent guesses a checkpoint name (like "before-bridge") that
+      doesn't exist → friction on whether the not-found error suggests
+      `sas history list`.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    # Save baseline (only Verse exists at this point).
+    - sas history checkpoint baseline
+    # Mutate after the checkpoint — this is what should be undone.
+    - sas scene create Bridge --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Roll back to the baseline save.
+
+metadata:
+  exercises:
+    - sas_history_undo
+
+assertions:
+  # Bridge must be gone after the undo — only Verse should remain.
+  - dbQuery:
+      sql: |
+        SELECT id FROM loop_sections
+        WHERE name = 'Bridge'
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      toHaveRows: 0
+  - dbQuery:
+      sql: |
+        SELECT id FROM loop_sections
+        WHERE name = 'Verse'
+          AND project_id = (
+            SELECT id FROM projects
+            WHERE name LIKE 'errantry-blank-%'
+            ORDER BY rowid DESC LIMIT 1
+          )
+      toHaveAtLeast: 1
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5
