@@ -1,0 +1,48 @@
+name: export-scene-as-wav
+description: |
+  Vague export ask with a target path. `export_audio` is the user-facing
+  "save this as a WAV at /tmp/foo.wav" surface. Required: `output`. The
+  schema notes tilde expansion and auto-append of .wav.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent guesses `--path` or `--out` instead of `--output` → friction
+      on the param-name help.
+    - Agent picks a path under a directory the process can't write to
+      (e.g., the project root) → render call errors, but the error
+      should be actionable.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  command_timeout_ms: 180000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Save this scene as a WAV file at /tmp/errantry-export.wav.
+
+metadata:
+  exercises:
+    - export_audio
+
+assertions:
+  - toolCalled:
+      matches: "(export|render|wav)"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

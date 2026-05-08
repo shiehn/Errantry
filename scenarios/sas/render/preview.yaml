@@ -1,0 +1,50 @@
+name: render-preview-of-scene
+description: |
+  Vague "let me hear it" ask. `sas_render_preview` bounces the active
+  scene (or a named one) to a cached audio file and returns a file://
+  URL. Async — tracktion render happens server-side; with the cache
+  warm it's fast, cold it's seconds.
+
+  We assert on toolCalled here (not on the rendered audio). A future
+  polling-aware DB matcher (Phase 2e) could check the renders table for
+  a cached entry, but for now the agent's invocation is the signal.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent reaches for `sas play` (which plays via engine, no file
+      output) when a render was wanted → friction signal on whether
+      preview vs. play is differentiated in help text.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  command_timeout_ms: 120000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Let me hear a preview of the verse.
+
+metadata:
+  exercises:
+    - sas_render_preview
+
+assertions:
+  - toolCalled:
+      matches: "(preview|render)"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

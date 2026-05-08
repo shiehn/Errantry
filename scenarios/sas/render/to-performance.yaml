@@ -1,0 +1,49 @@
+name: render-to-performance-deck
+description: |
+  Vague "send to main outs" ask. `render_to_performance` is the deck-aware
+  composite — renders a scene and routes it to loop-b (channels 3-4) for
+  live performance. Different from `play_scene deck=main` (which is a
+  pointer to this) and from `sas_render_preview` (cue/headphone, no main
+  routing).
+
+  Failure modes worth distinguishing in the trace:
+    - Agent uses `sas_render_preview` thinking it's the same thing →
+      friction signal on whether "main outs" vs. "preview" is differentiated.
+    - Agent invents `sas perform` or `sas main` and doesn't pivot →
+      friction on top-level help.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 10
+  command_timeout_ms: 180000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Send this scene to the main outs for live performance.
+
+metadata:
+  exercises:
+    - render_to_performance
+
+assertions:
+  - toolCalled:
+      matches: "(performance|render|main|loop-b)"
+  - budget:
+      turns: 10
+      errors: 5
+      frictionScore: 0.5

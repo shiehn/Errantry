@@ -1,0 +1,45 @@
+name: collapse-scene-view
+description: |
+  Vague UI-state ask. `scene_set_collapsed` sets a display flag; the
+  Tracktion engine ignores it (per the action description). This is a
+  low-value coverage row — it exists for completeness so the framework
+  exercises every action at least once.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent runs the action successfully but is confused that the
+      output mentions "no-op in Tracktion" → friction on whether the
+      action description should warn the user up front about the
+      historical no-op.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 6
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Collapse the verse view.
+
+metadata:
+  exercises:
+    - scene_set_collapsed
+
+assertions:
+  - toolCalled:
+      matches: "(collapse|scene)"
+  - budget:
+      turns: 6
+      errors: 3
+      frictionScore: 0.5

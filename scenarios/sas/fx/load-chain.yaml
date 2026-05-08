@@ -1,0 +1,52 @@
+name: load-fx-chain-onto-bass
+description: |
+  Multi-step heavy-discovery ask. `dsl_load_fx_chain` requires both a
+  track selector AND a `chainPath` (a .RfxChain file). The agent has
+  to chain at least three calls:
+    1. `dsl_get_preset_categories` — learn what category dirs exist
+    2. `dsl_get_random_fx_chain` — get a concrete .RfxChain path
+    3. `dsl_load_fx_chain` — apply it to the bass
+
+  Tests whether help text scaffolds this chain. Friction signals will
+  tell us whether `--help` for `dsl_load_fx_chain` mentions the
+  prerequisite discovery calls.
+
+  Failure modes worth distinguishing in the trace:
+    - Agent invents a chain path (e.g., `~/presets/reverb.RfxChain`)
+      that doesn't exist → friction on whether the file-not-found
+      error suggests `dsl_get_random_fx_chain` as a way to discover
+      valid paths.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    - sas scene create Verse --json
+    - sas dsl_track_create name=Bass role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 14
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Load a random reverb FX chain onto the bass.
+
+metadata:
+  exercises:
+    - dsl_load_fx_chain
+
+assertions:
+  - toolCalled:
+      matches: "(load_fx_chain|RfxChain|chain)"
+  - budget:
+      turns: 14
+      errors: 7
+      frictionScore: 0.5

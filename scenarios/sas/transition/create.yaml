@@ -1,0 +1,62 @@
+name: bridge-verse-to-chorus
+description: |
+  Vague transition ask. `create_transition` auto-composes a 1-4 bar
+  bridge between two scenes — LLM-heavy, slow. We seed both scenes with
+  bass tracks via `make beat` so there's actual material the transition
+  can analyze. The action accepts scene names directly (built-in
+  resolver).
+
+  Failure modes worth distinguishing in the trace:
+    - Agent calls without `fromScene` or `toScene` → friction on the
+      missing-required error message.
+    - Agent confuses with `sas plan` (typed Plan generation) when the
+      user wanted a musical transition → friction signal on whether
+      `transition` vs. `plan` is teachable.
+
+surface: cli
+
+setup:
+  fixture: blank
+  preCommands:
+    # Seed both scenes with bass material so the LLM has something to
+    # transition between. make_beat takes 60-120s per track so this is
+    # the slowest preCommand block in the suite.
+    - sas make beat --roles bass --vibe baseline
+    - sas scene create Chorus --json
+    - sas dsl_track_create name=Bass2 role=bass
+
+agent:
+  provider: openai
+  model: gpt-4o-mini
+  max_turns: 14
+  command_timeout_ms: 240000
+  system: |
+    You are testing a CLI named `sas`. The `sas` binary is on PATH.
+    Use it to accomplish the goal. Discover the surface via `sas --help`,
+    `sas <subcommand> --help`, or `sas list-actions`. Read error messages
+    carefully and use them to recover. Run one bash command per tool call.
+    Apply the change so it actually lands — do not stop at a plan-only/dry-run.
+    When the goal is satisfied, respond without calling a tool.
+
+goal: |
+  Make a transition that bridges from the first scene to the chorus.
+
+metadata:
+  exercises:
+    - create_transition
+
+assertions:
+  # A row should appear in the transitions table.
+  - dbQuery:
+      sql: |
+        SELECT id FROM transitions
+        WHERE project_id = (
+          SELECT id FROM projects
+          WHERE name LIKE 'errantry-blank-%'
+          ORDER BY rowid DESC LIMIT 1
+        )
+      toHaveAtLeast: 1
+  - budget:
+      turns: 14
+      errors: 7
+      frictionScore: 0.5
